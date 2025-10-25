@@ -27,7 +27,7 @@
         <INDEX NAME="upload_timestamp" UNIQUE="false" FIELDS="upload_timestamp"/>
       </INDEXES>
     </TABLE>
-    <TABLE NAME="assignsubmission_cfstream_log" COMMENT="Logs events and errors for Cloudflare Stream uploads and playback">
+    <TABLE NAME="assignsubmission_cfs_log" COMMENT="Logs events and errors for Cloudflare Stream uploads and playback">
       <FIELDS>
         <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
         <FIELD NAME="userid" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false" COMMENT="User ID associated with the event"/>

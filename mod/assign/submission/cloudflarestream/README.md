@@ -22,57 +22,100 @@ This Moodle plugin enables students to upload large video files (up to 5 GB) as 
 - Cloudflare Stream account with API access
 - Sufficient Cloudflare Stream quota for expected usage
 
-## Installation
+## Installation for EC2 Ubuntu Server
 
-### Installation Method 1: Via Moodle Plugin Installer (Recommended)
+### ⚠️ IMPORTANT: ZIP Upload Does NOT Work
 
-1. **Create the plugin ZIP file**:
-   - **Windows**: Run `create_release_zip.bat` in the plugin directory
-   - **Linux/Mac**: Run `./create_release_zip.sh` in the plugin directory
-   - This creates `cloudflarestream.zip` in the `releases` folder
+**Assignment submission plugins cannot be installed via ZIP upload in Moodle/IOMAD.**
 
-2. **Install via Moodle UI**:
-   - Log in to Moodle as administrator
-   - Navigate to **Site Administration → Plugins → Install plugins**
-   - Click **Choose a file** and select `cloudflarestream.zip`
-   - Moodle will automatically detect it as an "Assignment submission plugin"
-   - Click **Install plugin from the ZIP file**
-   - Review the validation report and click **Continue**
-   - Click **Upgrade Moodle database now**
-   - The plugin will create the necessary database tables automatically
+If you try ZIP upload, you'll get:
+```
+[Error] Unknown plugin type [assignsubmission]
+```
 
-### Installation Method 2: Manual Installation
+This is normal Moodle behavior for subplugins. Use the deployment method below.
 
-1. **Download the plugin files** or clone from repository
-2. **Extract/copy** the `cloudflarestream` directory to:
-   ```
-   [your-moodle-root]/mod/assign/submission/cloudflarestream/
-   ```
-3. **Set proper file permissions** (readable by web server):
-   ```bash
-   # Linux/Mac
-   chmod -R 755 mod/assign/submission/cloudflarestream
-   chown -R www-data:www-data mod/assign/submission/cloudflarestream
-   ```
-4. **Complete installation**:
-   - Visit **Site Administration → Notifications**
-   - Click **Upgrade Moodle database now**
-   - The plugin will create the necessary database tables automatically
+---
+
+### Deployment Method 1: Automated Script (Recommended)
+
+From your local machine, run:
+
+```bash
+chmod +x deploy_to_ec2.sh
+./deploy_to_ec2.sh
+```
+
+The script will:
+- Package the plugin
+- Upload to your EC2 server via SCP
+- Extract and set correct permissions
+- Guide you through completion
+
+---
+
+### Deployment Method 2: Manual Commands
+
+**On your local machine:**
+```bash
+cd mod/assign/submission
+tar -czf cloudflarestream.tar.gz cloudflarestream/
+scp cloudflarestream.tar.gz ubuntu@YOUR_EC2_IP:/tmp/
+```
+
+**On your EC2 server:**
+```bash
+ssh ubuntu@YOUR_EC2_IP
+cd /var/www/html/moodle/mod/assign/submission/
+sudo tar -xzf /tmp/cloudflarestream.tar.gz
+sudo chown -R www-data:www-data cloudflarestream/
+sudo chmod -R 755 cloudflarestream/
+sudo rm /tmp/cloudflarestream.tar.gz
+```
+
+---
+
+### Complete Installation in Moodle
+
+After deploying files:
+
+1. Open your web browser
+2. Go to your Moodle URL
+3. Log in as **administrator**
+4. Navigate to: **Site Administration → Notifications**
+5. Moodle will detect the new plugin
+6. Click: **"Upgrade Moodle database now"**
+7. Follow the prompts
+
+---
 
 ### Verify Installation
 
-After installation, verify the plugin is active:
-1. Go to **Site Administration → Plugins → Assignment → Submission plugins**
-2. Find "Cloudflare Stream" in the list
-3. Ensure it shows as "Enabled"
+1. Go to: **Site Administration → Plugins → Activity modules → Assignment → Submission plugins**
+2. Find **"Cloudflare Stream"** in the list
+3. Ensure it shows as **"Enabled"**
 4. If disabled, click the eye icon to enable it
 
-### Step 2: Enable the Plugin
+---
 
-1. Navigate to **Site Administration > Plugins > Assignment > Submission plugins**
-2. Find "Cloudflare Stream" in the list
-3. Click the "Enable" link if it's not already enabled
-4. The plugin should now appear as available for assignment creation
+### Troubleshooting
+
+**Plugin not detected?**
+```bash
+# Clear Moodle cache
+sudo -u www-data php /var/www/html/moodle/admin/cli/purge_caches.php
+```
+
+**Permission errors?**
+```bash
+# Fix permissions
+sudo chown -R www-data:www-data /var/www/html/moodle/mod/assign/submission/cloudflarestream/
+sudo chmod -R 755 /var/www/html/moodle/mod/assign/submission/cloudflarestream/
+```
+
+**Need detailed help?**
+- See **EC2_DEPLOYMENT.txt** for quick reference
+- See **DEPLOY_TO_EC2.md** for complete guide with troubleshooting
 
 ## Configuration
 

@@ -8,6 +8,9 @@
 
 defined('MOODLE_INTERNAL') || die();
 
+// Require the parent class.
+require_once($CFG->dirroot . '/mod/assign/submissionplugin.php');
+
 /**
  * Library class for Cloudflare Stream assignment submission plugin.
  *
@@ -468,12 +471,10 @@ function verify_video_access($user_id, $submission_id, $video_uid) {
     global $DB;
     
     // Validate input parameters.
-    use assignsubmission_cloudflarestream\validator;
-    
     try {
-        $user_id = validator::validate_user_id($user_id);
-        $submission_id = validator::validate_submission_id($submission_id);
-        $video_uid = validator::validate_video_uid($video_uid);
+        $user_id = \assignsubmission_cloudflarestream\validator::validate_user_id($user_id);
+        $submission_id = \assignsubmission_cloudflarestream\validator::validate_submission_id($submission_id);
+        $video_uid = \assignsubmission_cloudflarestream\validator::validate_video_uid($video_uid);
     } catch (\assignsubmission_cloudflarestream\validation_exception $e) {
         throw new moodle_exception('invalidparameters', 'assignsubmission_cloudflarestream', '', null, $e->getMessage());
     }
