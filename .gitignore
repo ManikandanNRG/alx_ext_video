@@ -1,0 +1,57 @@
+# Moodle Plugin - Cloudflare Stream
+# .gitignore for GitHub repository
+
+# Test files (temporary debugging files)
+mod/assign/submission/cloudflarestream/test_*.php
+mod/assign/submission/cloudflarestream/debug_*.php
+mod/assign/submission/cloudflarestream/check_*.php
+mod/assign/submission/cloudflarestream/force_*.php
+mod/assign/submission/cloudflarestream/enable_*.php
+mod/assign/submission/cloudflarestream/fix_*.php
+mod/assign/submission/cloudflarestream/complete_*.php
+
+# IDE and Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Moodle specific
+moodledata/
+config.php
+
+# Logs
+*.log
+error.log
+
+# Temporary files
+*.tmp
+*.bak
+*.cache
+
+# Node modules (if using npm for JS development)
+node_modules/
+package-lock.json
+
+# Composer (if using PHP dependencies)
+vendor/
+composer.lock
+
+# Build artifacts
+*.zip
+*.tar.gz
+*.tgz
+
+# Environment files
+.env
+.env.local
+
+# OS specific
+Thumbs.db
+desktop.ini
+
+# Backup files
+*_backup
+*.backup

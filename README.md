@@ -1,6 +1,13 @@
 # Cloudflare Stream Plugin for Moodle/IOMAD
 
+[![Moodle](https://img.shields.io/badge/Moodle-3.9%2B-orange.svg)](https://moodle.org/)
+[![PHP](https://img.shields.io/badge/PHP-7.4%2B-blue.svg)](https://www.php.net/)
+[![License](https://img.shields.io/badge/License-GPL%20v3-blue.svg)](LICENSE)
+[![Version](https://img.shields.io/badge/Version-1.0.0-green.svg)](CHANGELOG.md)
+
 A Moodle assignment submission plugin that enables students to upload large video files (up to 5 GB) directly to Cloudflare Stream, bypassing server storage entirely.
+
+> **Version 1.0.0** - Initial release. Plugin structure and code are production-ready. Full end-to-end testing requires an active Cloudflare Stream account ($5/month minimum).
 
 ## Features
 
@@ -93,6 +100,28 @@ For issues:
 3. Check web server logs: `/var/log/apache2/error.log` or `/var/log/nginx/error.log`
 4. Enable Moodle debugging: Site Administration → Development → Debugging
 
+## Contributing
+
+Contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md) for version history and planned features.
+
+## Support
+
+- **Issues**: [GitHub Issues](https://github.com/YOUR_USERNAME/moodle-assignsubmission_cloudflarestream/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/YOUR_USERNAME/moodle-assignsubmission_cloudflarestream/discussions)
+- **Documentation**: See [plugin documentation](mod/assign/submission/cloudflarestream/README.md)
+
 ## License
 
-GNU GPL v3 or later
+GNU GPL v3 or later. See [LICENSE](LICENSE) for full text.
+
+## Credits
+
+Developed for the Moodle community with ❤️
+
+## Disclaimer
+
+Requires Cloudflare Stream subscription ($5/month minimum). Plugin provided "as is" without warranty. Test in staging before production deployment.
