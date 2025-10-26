@@ -1,0 +1,73 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+}}
+{{!
+    @template assignsubmission_s3video/player
+
+    S3 Video player template using Video.js.
+
+    Context variables required for this template:
+    * s3key - The S3 key for the video
+    * submissionid - The submission ID
+    * containerid - The unique container ID for this player instance
+
+    Example context (json):
+    {
+        "s3key": "videos/123/1698345600_a7b3c/myvideo.mp4",
+        "submissionid": 42,
+        "containerid": "s3video-player-12345"
+    }
+}}
+
+{{! Include Video.js CSS }}
+<link href="https://vjs.zencdn.net/8.6.1/video-js.css" rel="stylesheet" />
+
+<div class="s3video-player-wrapper">
+    <div id="{{containerid}}" 
+         class="s3video-player-container" 
+         data-s3-key="{{s3key}}"
+         data-submission-id="{{submissionid}}"
+         style="width: 100%; min-height: 400px; background-color: #000; border-radius: 4px; position: relative;">
+        
+        {{! Loading indicator - will be replaced by player }}
+        <div class="s3video-loading text-center" style="padding: 100px 20px;">
+            <div class="spinner-border text-light" role="status" style="width: 3rem; height: 3rem;">
+                <span class="sr-only">{{#str}}videoloading, assignsubmission_s3video{{/str}}</span>
+            </div>
+            <p class="text-light mt-3">{{#str}}videoloading, assignsubmission_s3video{{/str}}</p>
+        </div>
+    </div>
+    
+    {{! Error container - hidden by default, shown if playback fails }}
+    <div id="{{containerid}}-error" class="s3video-error-container" style="display: none;">
+        <div class="alert alert-danger mt-3" role="alert">
+            <strong>{{#str}}playbackerror, assignsubmission_s3video{{/str}}</strong>
+            <p class="s3video-error-message mb-2"></p>
+            <button type="button" class="btn btn-secondary btn-sm s3video-retry-btn">
+                {{#str}}retryplayback, assignsubmission_s3video{{/str}}
+            </button>
+        </div>
+    </div>
+</div>
+
+{{! Include Video.js library }}
+<script src="https://vjs.zencdn.net/8.6.1/video.min.js"></script>
+
+{{#js}}
+require(['assignsubmission_s3video/player'], function(Player) {
+    Player.init('{{s3key}}', {{submissionid}}, '{{containerid}}');
+});
+{{/js}}

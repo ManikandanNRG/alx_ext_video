@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<XMLDB PATH="mod/assign/submission/s3video/db" VERSION="20251026" COMMENT="XMLDB file for Moodle mod/assign/submission/s3video"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:noNamespaceSchemaLocation="../../../../../../lib/xmldb/xmldb.xsd"
+>
+  <TABLES>
+    <TABLE NAME="assignsubmission_s3video" COMMENT="Stores S3 video submission metadata">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="assignment" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Foreign key to assignment"/>
+        <FIELD NAME="submission" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Foreign key to submission"/>
+        <FIELD NAME="s3_key" TYPE="char" LENGTH="255" NOTNULL="true" SEQUENCE="false" COMMENT="S3 object key (path)"/>
+        <FIELD NAME="s3_bucket" TYPE="char" LENGTH="255" NOTNULL="true" SEQUENCE="false" COMMENT="S3 bucket name"/>
+        <FIELD NAME="upload_status" TYPE="char" LENGTH="50" NOTNULL="true" SEQUENCE="false" COMMENT="Status: pending, uploading, ready, error, deleted"/>
+        <FIELD NAME="file_size" TYPE="int" LENGTH="20" NOTNULL="false" SEQUENCE="false" COMMENT="File size in bytes"/>
+        <FIELD NAME="duration" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false" COMMENT="Video duration in seconds"/>
+        <FIELD NAME="mime_type" TYPE="char" LENGTH="100" NOTNULL="false" SEQUENCE="false" COMMENT="MIME type of video"/>
+        <FIELD NAME="upload_timestamp" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Unix timestamp of upload"/>
+        <FIELD NAME="deleted_timestamp" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false" COMMENT="Unix timestamp of deletion"/>
+        <FIELD NAME="error_message" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Error message if upload failed"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+        <KEY NAME="assignment" TYPE="foreign" FIELDS="assignment" REFTABLE="assign" REFFIELDS="id"/>
+        <KEY NAME="submission" TYPE="foreign-unique" FIELDS="submission" REFTABLE="assign_submission" REFFIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="s3_key" UNIQUE="false" FIELDS="s3_key"/>
+        <INDEX NAME="upload_timestamp" UNIQUE="false" FIELDS="upload_timestamp"/>
+      </INDEXES>
+    </TABLE>
+    <TABLE NAME="assignsubmission_s3v_log" COMMENT="Logs upload and playback events for monitoring">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="userid" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false" COMMENT="User who triggered event"/>
+        <FIELD NAME="assignmentid" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false" COMMENT="Assignment ID"/>
+        <FIELD NAME="submissionid" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false" COMMENT="Submission ID"/>
+        <FIELD NAME="s3_key" TYPE="char" LENGTH="255" NOTNULL="false" SEQUENCE="false" COMMENT="S3 object key"/>
+        <FIELD NAME="event_type" TYPE="char" LENGTH="50" NOTNULL="true" SEQUENCE="false" COMMENT="Event type: upload_start, upload_success, upload_error, playback, etc."/>
+        <FIELD NAME="error_code" TYPE="char" LENGTH="100" NOTNULL="false" SEQUENCE="false" COMMENT="Error code if applicable"/>
+        <FIELD NAME="error_message" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Error message"/>
+        <FIELD NAME="error_context" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Additional error context (JSON)"/>
+        <FIELD NAME="file_size" TYPE="int" LENGTH="20" NOTNULL="false" SEQUENCE="false" COMMENT="File size in bytes"/>
+        <FIELD NAME="duration" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false" COMMENT="Video duration in seconds"/>
+        <FIELD NAME="retry_count" TYPE="int" LENGTH="5" NOTNULL="false" DEFAULT="0" SEQUENCE="false" COMMENT="Number of retries"/>
+        <FIELD NAME="user_role" TYPE="char" LENGTH="50" NOTNULL="false" SEQUENCE="false" COMMENT="User role at time of event"/>
+        <FIELD NAME="timestamp" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Unix timestamp"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+        <KEY NAME="userid" TYPE="foreign" FIELDS="userid" REFTABLE="user" REFFIELDS="id"/>
+        <KEY NAME="assignmentid" TYPE="foreign" FIELDS="assignmentid" REFTABLE="assign" REFFIELDS="id"/>
+        <KEY NAME="submissionid" TYPE="foreign" FIELDS="submissionid" REFTABLE="assign_submission" REFFIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="event_type" UNIQUE="false" FIELDS="event_type"/>
+        <INDEX NAME="timestamp" UNIQUE="false" FIELDS="timestamp"/>
+      </INDEXES>
+    </TABLE>
+  </TABLES>
+</XMLDB>
