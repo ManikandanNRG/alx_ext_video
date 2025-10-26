@@ -36,7 +36,7 @@ use assignsubmission_s3video\retry_handler;
 
 // Get parameters.
 $s3key = required_param('s3_key', PARAM_TEXT);
-$submissionid = required_param('submission_id', PARAM_INT);
+$submissionid = required_param('submissionid', PARAM_INT);
 
 // Require login and valid session.
 require_login();

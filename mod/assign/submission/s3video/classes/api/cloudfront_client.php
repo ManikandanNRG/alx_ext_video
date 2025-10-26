@@ -264,13 +264,24 @@ class cloudfront_client {
     }
 
     /**
-     * Encode data in URL-safe base64 format.
+     * Encode data in URL-safe base64 format for CloudFront.
+     *
+     * CloudFront requires base64 encoding with these character replacements:
+     * + becomes -
+     * = becomes _
+     * / becomes ~
      *
      * @param string $data The data to encode
      * @return string URL-safe base64-encoded string
      */
     private function url_safe_base64_encode($data) {
-        return strtr(base64_encode($data), '+=/', '-_~');
+        // Standard base64 encode
+        $encoded = base64_encode($data);
+        // Replace characters for CloudFront URL-safe format
+        $encoded = str_replace('+', '-', $encoded);
+        $encoded = str_replace('=', '_', $encoded);
+        $encoded = str_replace('/', '~', $encoded);
+        return $encoded;
     }
 
     /**

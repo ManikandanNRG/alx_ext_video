@@ -121,6 +121,11 @@
 
 {{#js}}
 require(['assignsubmission_s3video/uploader'], function(Uploader) {
-    Uploader.init({{assignmentid}}, {{submissionid}}, {{maxfilesize}}, '.s3video-upload-interface');
+    Uploader.init(
+        {{assignmentid}}, 
+        {{#submissionid}}{{submissionid}}{{/submissionid}}{{^submissionid}}0{{/submissionid}}, 
+        {{maxfilesize}}, 
+        '.s3video-upload-interface'
+    );
 });
 {{/js}}

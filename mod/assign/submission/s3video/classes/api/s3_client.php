@@ -141,10 +141,16 @@ class s3_client {
             }
 
             // Create PostObjectV4 for presigned POST.
+            // Form inputs that will be included as hidden fields.
+            $forminputs = [
+                'key' => $s3key,
+                'Content-Type' => $mimetype,
+            ];
+
+            // Policy conditions.
             $options = [
                 ['bucket' => $this->bucket],
                 ['key' => $s3key],
-                ['acl' => 'private'],
                 ['Content-Type' => $mimetype],
                 ['content-length-range', 1, $maxsize],
             ];
@@ -153,7 +159,7 @@ class s3_client {
             $postobject = new PostObjectV4(
                 $this->s3client,
                 $this->bucket,
-                ['key' => $s3key],
+                $forminputs,
                 $options,
                 $expires
             );
