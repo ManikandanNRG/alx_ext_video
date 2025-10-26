@@ -91,18 +91,11 @@ echo html_writer::tag('p', get_string('videonotsupported', 'assignsubmission_s3v
 
 echo html_writer::end_tag('video');
 
-// Download link - use a download proxy to force download instead of playing in browser.
-$downloadurl = new moodle_url('/mod/assign/submission/s3video/download_video.php', [
-    'id' => $submissionid,
-    's3key' => $s3key
-]);
-
-echo html_writer::start_div('mt-3');
-echo html_writer::link($downloadurl, 
-    '<i class="fa fa-download"></i> ' . get_string('downloadvideo', 'assignsubmission_s3video'),
-    [
-        'class' => 'btn btn-secondary'
-    ]
+// Add a helpful note about downloading.
+echo html_writer::start_div('alert alert-info mt-3');
+echo html_writer::tag('p', 
+    '<i class="fa fa-info-circle"></i> ' . get_string('downloadhint', 'assignsubmission_s3video'), 
+    ['class' => 'mb-0']
 );
 echo html_writer::end_div();
 
