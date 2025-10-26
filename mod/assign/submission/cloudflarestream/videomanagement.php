@@ -31,7 +31,8 @@ use assignsubmission_cloudflarestream\api\cloudflare_api_exception;
 use assignsubmission_cloudflarestream\logger;
 
 // Require admin login.
-admin_externalpage_setup('assignsubmission_cloudflarestream_videomanagement');
+require_login();
+require_capability('moodle/site:config', context_system::instance());
 
 // Get parameters.
 $action = optional_param('action', '', PARAM_ALPHA);
@@ -44,6 +45,8 @@ $status = optional_param('status', '', PARAM_ALPHA);
 $search = optional_param('search', '', PARAM_TEXT);
 
 // Page setup.
+$context = context_system::instance();
+$PAGE->set_context($context);
 $PAGE->set_url('/mod/assign/submission/cloudflarestream/videomanagement.php', [
     'page' => $page,
     'perpage' => $perpage,
@@ -51,6 +54,7 @@ $PAGE->set_url('/mod/assign/submission/cloudflarestream/videomanagement.php', [
     'status' => $status,
     'search' => $search
 ]);
+$PAGE->set_pagelayout('admin');
 $PAGE->set_title(get_string('videomanagement', 'assignsubmission_cloudflarestream'));
 $PAGE->set_heading(get_string('videomanagement', 'assignsubmission_cloudflarestream'));
 

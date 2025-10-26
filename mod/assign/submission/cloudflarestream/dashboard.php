@@ -27,6 +27,10 @@ require_once($CFG->libdir . '/adminlib.php');
 
 use assignsubmission_cloudflarestream\logger;
 
+// Require admin login.
+require_login();
+require_capability('moodle/site:config', context_system::instance());
+
 /**
  * Format time duration in seconds to human readable format.
  *
@@ -47,9 +51,6 @@ function format_duration($seconds) {
     }
 }
 
-// Require admin login.
-admin_externalpage_setup('assignsubmission_cloudflarestream_dashboard');
-
 // Get optional time period parameter.
 $days = optional_param('days', 30, PARAM_INT);
 
@@ -59,7 +60,10 @@ if ($days < 1 || $days > 365) {
 }
 
 // Page setup.
+$context = context_system::instance();
+$PAGE->set_context($context);
 $PAGE->set_url('/mod/assign/submission/cloudflarestream/dashboard.php', ['days' => $days]);
+$PAGE->set_pagelayout('admin');
 $PAGE->set_title(get_string('dashboard', 'assignsubmission_cloudflarestream'));
 $PAGE->set_heading(get_string('dashboard', 'assignsubmission_cloudflarestream'));
 

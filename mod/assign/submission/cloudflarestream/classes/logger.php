@@ -54,7 +54,7 @@ class logger {
         $record->duration = $duration;
         $record->timestamp = time();
         
-        $DB->insert_record('assignsubmission_cfstream_log', $record);
+        $DB->insert_record('assignsubmission_cfs_log', $record);
         
         // Also log to standard error log for debugging.
         error_log(sprintf(
@@ -86,7 +86,7 @@ class logger {
         $record->error_context = $errorcontext;
         $record->timestamp = time();
         
-        $DB->insert_record('assignsubmission_cfstream_log', $record);
+        $DB->insert_record('assignsubmission_cfs_log', $record);
         
         // Also log to standard error log for debugging.
         error_log(sprintf(
@@ -116,7 +116,7 @@ class logger {
         $record->retry_count = $retrycount;
         $record->timestamp = time();
         
-        $DB->insert_record('assignsubmission_cfstream_log', $record);
+        $DB->insert_record('assignsubmission_cfs_log', $record);
     }
     
     /**
@@ -140,7 +140,7 @@ class logger {
         $record->user_role = $userrole;
         $record->timestamp = time();
         
-        $DB->insert_record('assignsubmission_cfstream_log', $record);
+        $DB->insert_record('assignsubmission_cfs_log', $record);
     }
     
     /**
@@ -168,7 +168,7 @@ class logger {
         $record->error_context = $errorcontext;
         $record->timestamp = time();
         
-        $DB->insert_record('assignsubmission_cfstream_log', $record);
+        $DB->insert_record('assignsubmission_cfs_log', $record);
         
         // Also log to standard error log for debugging.
         error_log(sprintf(
@@ -198,7 +198,7 @@ class logger {
         $record->error_context = json_encode(['deletion_type' => $deletiontype]);
         $record->timestamp = time();
         
-        $DB->insert_record('assignsubmission_cfstream_log', $record);
+        $DB->insert_record('assignsubmission_cfs_log', $record);
         
         // Also log to standard error log for debugging.
         error_log(sprintf(
@@ -230,7 +230,7 @@ class logger {
         ]);
         $record->timestamp = time();
         
-        $DB->insert_record('assignsubmission_cfstream_log', $record);
+        $DB->insert_record('assignsubmission_cfs_log', $record);
         
         // Also log to standard error log.
         error_log(sprintf(
@@ -252,21 +252,21 @@ class logger {
         
         // Get total uploads (success + failure).
         $totaluploads = $DB->count_records_select(
-            'assignsubmission_cfstream_log',
+            'assignsubmission_cfs_log',
             "event_type IN ('upload_success', 'upload_failure') AND timestamp >= ?",
             [$since]
         );
         
         // Get successful uploads.
         $successfuluploads = $DB->count_records_select(
-            'assignsubmission_cfstream_log',
+            'assignsubmission_cfs_log',
             "event_type = 'upload_success' AND timestamp >= ?",
             [$since]
         );
         
         // Get failed uploads.
         $faileduploads = $DB->count_records_select(
-            'assignsubmission_cfstream_log',
+            'assignsubmission_cfs_log',
             "event_type = 'upload_failure' AND timestamp >= ?",
             [$since]
         );
@@ -276,7 +276,7 @@ class logger {
         
         // Get total storage used (sum of file sizes).
         $sql = "SELECT SUM(file_size) as total_size
-                FROM {assignsubmission_cfstream_log}
+                FROM {assignsubmission_cfs_log}
                 WHERE event_type = 'upload_success' 
                 AND file_size IS NOT NULL
                 AND timestamp >= ?";
@@ -285,7 +285,7 @@ class logger {
         
         // Get total video duration.
         $sql = "SELECT SUM(duration) as total_duration
-                FROM {assignsubmission_cfstream_log}
+                FROM {assignsubmission_cfs_log}
                 WHERE event_type = 'upload_success' 
                 AND duration IS NOT NULL
                 AND timestamp >= ?";
@@ -313,7 +313,7 @@ class logger {
         global $DB;
         
         $sql = "SELECT l.*, u.firstname, u.lastname, u.email, a.name as assignmentname
-                FROM {assignsubmission_cfstream_log} l
+                FROM {assignsubmission_cfs_log} l
                 LEFT JOIN {user} u ON l.userid = u.id
                 LEFT JOIN {assign} a ON l.assignmentid = a.id
                 WHERE l.event_type = 'upload_failure'
@@ -334,7 +334,7 @@ class logger {
         $since = time() - ($days * 86400);
         
         $sql = "SELECT error_code, COUNT(*) as count
-                FROM {assignsubmission_cfstream_log}
+                FROM {assignsubmission_cfs_log}
                 WHERE event_type = 'upload_failure'
                 AND timestamp >= ?
                 GROUP BY error_code
