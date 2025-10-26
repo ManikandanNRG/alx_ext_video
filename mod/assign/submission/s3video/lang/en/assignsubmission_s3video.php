@@ -300,3 +300,12 @@ $string['error_recovery_wait'] = 'Wait a few minutes before trying again';
 
 // Max retries exceeded error.
 $string['max_retries_exceeded'] = 'Maximum retry attempts exceeded. Operation: {$a->operation}, Attempts: {$a->attempts}, Last error: {$a->error}';
+
+// Video viewing strings.
+$string['watchvideo'] = 'Watch video';
+$string['videonotsupported'] = 'Your browser does not support the video tag.';
+$string['downloadvideo'] = 'Download video';
+$string['videopending'] = 'Video is still being processed.';
+$string['videoloading'] = 'Loading video...';
+$string['playbackerror'] = 'Video playback error';
+$string['retryplayback'] = 'Retry';

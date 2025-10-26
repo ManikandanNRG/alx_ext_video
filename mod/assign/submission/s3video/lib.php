@@ -183,6 +183,75 @@ class assign_submission_s3video extends assign_submission_plugin {
     }
 
     /**
+     * Display a summary of the submission in the grading table.
+     *
+     * @param stdClass $submission The submission object
+     * @param bool $showviewlink Whether to show a link to view the full submission
+     * @return string HTML to display
+     */
+    public function view_summary(stdClass $submission, & $showviewlink) {
+        global $DB, $CFG;
+
+        // Get the video record for this submission.
+        $video = $DB->get_record('assignsubmission_s3video', 
+            array('submission' => $submission->id));
+
+        if (!$video) {
+            return '';
+        }
+
+        // Display status with icon.
+        $statuskey = 'status_' . $video->upload_status;
+        $statustext = get_string($statuskey, 'assignsubmission_s3video');
+        
+        $icon = '';
+        $output = '';
+        
+        switch ($video->upload_status) {
+            case 'ready':
+                // Create a link to view the video in a new tab.
+                $viewurl = new moodle_url('/mod/assign/submission/s3video/view_video.php', [
+                    'id' => $submission->id,
+                    's3key' => $video->s3_key
+                ]);
+                
+                $icon = '<i class="fa fa-video-camera text-success" aria-hidden="true"></i>';
+                $output = html_writer::link(
+                    $viewurl,
+                    $icon . ' ' . $statustext,
+                    [
+                        'target' => '_blank',
+                        'title' => get_string('watchvideo', 'assignsubmission_s3video'),
+                        'class' => 's3video-watch-link'
+                    ]
+                );
+                
+                // Add file size if available.
+                if ($video->file_size) {
+                    $output .= ' (' . display_size($video->file_size) . ')';
+                }
+                break;
+                
+            case 'pending':
+                $icon = '<i class="fa fa-clock-o text-warning" aria-hidden="true"></i> ';
+                $output = $icon . $statustext;
+                break;
+                
+            case 'error':
+                $icon = '<i class="fa fa-exclamation-triangle text-danger" aria-hidden="true"></i> ';
+                $output = $icon . $statustext;
+                break;
+                
+            case 'deleted':
+                $icon = '<i class="fa fa-trash text-muted" aria-hidden="true"></i> ';
+                $output = $icon . $statustext;
+                break;
+        }
+        
+        return $output;
+    }
+
+    /**
      * Display the submission for grading/review.
      *
      * @param stdClass $submission The submission object
@@ -201,13 +270,17 @@ class assign_submission_s3video extends assign_submission_plugin {
         }
 
         $output = '';
+        
+        // Add a visible header to confirm this method is being called.
+        $output .= html_writer::start_div('s3video-submission-container', ['style' => 'border: 2px solid #0f6cbf; padding: 15px; margin: 10px 0; border-radius: 5px; background-color: #f9f9f9;']);
+        $output .= html_writer::tag('h3', get_string('s3video', 'assignsubmission_s3video'), ['style' => 'margin-top: 0; color: #0f6cbf;']);
 
         // Display video status.
         $statuskey = 'status_' . $video->upload_status;
         $statustext = get_string($statuskey, 'assignsubmission_s3video');
         
         $output .= html_writer::tag('div', 
-            html_writer::tag('strong', get_string('s3video', 'assignsubmission_s3video') . ': ') . 
+            html_writer::tag('strong', get_string('status', 'core') . ': ') . 
             $statustext,
             array('class' => 's3video-status mb-3')
         );
@@ -249,6 +322,12 @@ class assign_submission_s3video extends assign_submission_plugin {
                 
                 $output .= html_writer::end_div();
             }
+        } else if ($video->upload_status === 'pending') {
+            // Video is still uploading.
+            $output .= html_writer::tag('div', 
+                get_string('videopending', 'assignsubmission_s3video'),
+                array('class' => 'alert alert-info')
+            );
         } else if ($video->upload_status === 'error' && !empty($video->error_message)) {
             // Display error message.
             $output .= html_writer::tag('div', 
@@ -262,6 +341,9 @@ class assign_submission_s3video extends assign_submission_plugin {
                 array('class' => 'alert alert-warning')
             );
         }
+        
+        // Close the container div.
+        $output .= html_writer::end_div();
 
         return $output;
     }

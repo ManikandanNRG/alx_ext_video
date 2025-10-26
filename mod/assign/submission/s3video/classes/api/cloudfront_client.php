@@ -158,6 +158,46 @@ class cloudfront_client {
     }
 
     /**
+     * Sign a URL that already contains query parameters (like response-content-disposition).
+     *
+     * @param string $url The full URL to sign (including query parameters)
+     * @param int $expires Unix timestamp when the URL should expire
+     * @return string The signed URL
+     * @throws cloudfront_signature_exception If signature generation fails
+     */
+    public function sign_url_with_canned_policy($url, $expires) {
+        try {
+            // Validate inputs.
+            if (empty($url)) {
+                throw new cloudfront_api_exception('missing_url', 'URL cannot be empty');
+            }
+            if ($expires <= time()) {
+                throw new cloudfront_api_exception('invalid_expiry', 'Expiry must be in the future');
+            }
+
+            // Create the policy for the full URL (including query parameters).
+            $policy = $this->create_policy($url, $expires);
+
+            // Generate the signature.
+            $signature = $this->sign_policy($policy);
+
+            // Add signature parameters to the URL.
+            $separator = (strpos($url, '?') !== false) ? '&' : '?';
+            $signedurl = $url . $separator .
+                'Expires=' . $expires .
+                '&Signature=' . $signature .
+                '&Key-Pair-Id=' . $this->keypairid;
+
+            return $signedurl;
+
+        } catch (cloudfront_api_exception $e) {
+            throw $e;
+        } catch (\Exception $e) {
+            throw new cloudfront_signature_exception('Unexpected error: ' . $e->getMessage());
+        }
+    }
+
+    /**
      * Create a CloudFront invalidation to clear cached content.
      *
      * @param string $s3key The S3 key (path) to invalidate
