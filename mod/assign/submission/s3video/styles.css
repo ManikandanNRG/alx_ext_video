@@ -136,6 +136,7 @@
     0% {
         background-position: 40px 0;
     }
+
     100% {
         background-position: 0 0;
     }
@@ -343,24 +344,24 @@
     .s3video-dropzone {
         padding: 30px 15px;
     }
-    
+
     .s3video-dropzone-text {
         font-size: 14px;
     }
-    
+
     .s3video-select-btn {
         width: 100%;
         padding: 12px;
     }
-    
+
     .s3video-progress-container {
         padding: 15px;
     }
-    
+
     .s3video-progress-wrapper {
         height: 28px;
     }
-    
+
     .s3video-metadata {
         display: block;
         margin: 5px 0;
@@ -371,15 +372,15 @@
     .s3video-dropzone {
         padding: 20px 10px;
     }
-    
+
     .s3video-dropzone-icon .fa {
         font-size: 2em;
     }
-    
+
     .s3video-dropzone-text {
         font-size: 13px;
     }
-    
+
     .s3video-dropzone-hint {
         font-size: 12px;
     }
@@ -493,7 +494,7 @@
 }
 
 .dashboard-stats table {
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .dashboard-stats th {
@@ -520,7 +521,7 @@
 }
 
 .dashboard-errors table {
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .dashboard-recent-failures {
@@ -536,7 +537,7 @@
 }
 
 .dashboard-recent-failures table {
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .dashboard-recent-failures td {
@@ -582,19 +583,19 @@
         flex-direction: column;
         align-items: stretch;
     }
-    
+
     .dashboard-period-selector select {
         margin-bottom: 10px;
     }
-    
+
     .dashboard-stats th {
         width: 50%;
     }
-    
+
     .dashboard-recent-failures table {
         font-size: 0.8rem;
     }
-    
+
     .dashboard-external-links .btn {
         display: block;
         width: 100%;
@@ -604,12 +605,13 @@
 }
 
 @media (max-width: 480px) {
+
     .dashboard-stats table,
     .dashboard-errors table,
     .dashboard-recent-failures table {
         font-size: 0.8rem;
     }
-    
+
     .dashboard-recent-failures td {
         padding: 0.5rem 0.25rem;
     }
@@ -617,6 +619,7 @@
 
 /* Print styles */
 @media print {
+
     .s3video-dropzone,
     .s3video-progress-container,
     .s3video-select-btn,
@@ -637,29 +640,34 @@
     padding: 0;
 }
 
-/* Full-width player in grading interface */
+/* Optimized player size for grading interface */
 .s3video-grading-view .s3video-player-container {
     width: 100%;
-    max-width: 100%;
-    min-height: 500px;
-    margin: 0;
+    max-width: 800px;
+    /* Limit maximum width */
+    min-height: 400px;
+    margin: 0 auto;
+    /* Center the player */
     border-radius: 4px;
 }
 
-/* Responsive aspect ratio for grading view */
+/* Natural size wrapper for grading view */
 .s3video-grading-view .s3video-player-wrapper {
-    position: relative;
     width: 100%;
-    padding-top: 56.25%; /* 16:9 aspect ratio */
+    max-width: 800px;
+    /* Match container max-width */
+    margin: 0 auto;
+    /* Center the wrapper */
 }
 
 .s3video-grading-view .s3video-player-wrapper .s3video-player-container {
-    position: absolute;
-    top: 0;
-    left: 0;
     width: 100%;
-    height: 100%;
-    min-height: 0;
+    height: auto;
+    /* Let video determine its own height */
+    min-height: 300px;
+    /* Minimum height for loading state */
+    margin: 0 auto;
+    /* Center the container */
 }
 
 /* Video metadata in grading view */
@@ -706,16 +714,25 @@
 
 /* Responsive adjustments for grading view */
 @media (max-width: 1200px) {
-    .s3video-grading-view .s3video-player-container {
-        min-height: 400px;
+
+    .s3video-grading-view .s3video-player-container,
+    .s3video-grading-view .s3video-player-wrapper {
+        max-width: 700px;
     }
 }
 
 @media (max-width: 768px) {
-    .s3video-grading-view .s3video-player-container {
-        min-height: 300px;
+
+    .s3video-grading-view .s3video-player-container,
+    .s3video-grading-view .s3video-player-wrapper {
+        max-width: 100%;
     }
-    
+
+    .s3video-grading-view .s3video-player-container {
+        min-height: 250px;
+        /* Smaller minimum for mobile */
+    }
+
     .s3video-grading-view .s3video-metadata-display {
         padding: 10px;
         font-size: 13px;
@@ -724,6 +741,7 @@
 
 @media (max-width: 480px) {
     .s3video-grading-view .s3video-player-container {
-        min-height: 250px;
+        min-height: 200px;
+        /* Even smaller for very small screens */
     }
 }

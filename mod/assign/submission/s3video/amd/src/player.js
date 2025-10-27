@@ -160,9 +160,10 @@ define(['jquery', 'core/ajax'], function($, Ajax) {
                 .css({
                     width: '100%',
                     height: 'auto',
-                    minHeight: '400px',
+                    maxWidth: '800px',
                     backgroundColor: '#000',
-                    borderRadius: '4px'
+                    borderRadius: '4px',
+                    display: 'block'
                 });
 
             // Add source
