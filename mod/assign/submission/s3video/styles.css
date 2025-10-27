@@ -990,37 +990,41 @@ body:has(.s3video-two-column-layout) .s3video-player-container:not(.s3video-two-
 }
 
 /* ========================================
-   FEEDBACK COMMENTS TEXT WRAPPING - TARGETED FIX
+   FEEDBACK COMMENTS TEXT WRAPPING - UNIVERSAL FIX
    ======================================== */
 
-/* Target ONLY the feedback comments column (last column) */
-.path-mod-assign .submissionstatustable td:last-child {
-    word-wrap: break-word !important;
-    overflow-wrap: break-word !important;
-    word-break: break-word !important;
-    white-space: pre-wrap !important;
-    min-width: 250px !important;
-    /* Ensure adequate width for feedback */
-    width: 30% !important;
-    /* Give feedback column more space */
+/* Apply to ALL Moodle assignment tables - very broad selector */
+.path-mod-assign table {
+    table-layout: auto !important;
 }
 
-/* Alternative selectors for feedback comments */
-.path-mod-assign .feedbackcomments,
-.path-mod-assign .submissioncomment,
-.path-mod-assign .feedbacktext {
-    word-wrap: break-word !important;
-    overflow-wrap: break-word !important;
-    word-break: break-word !important;
-    white-space: pre-wrap !important;
-    min-width: 250px !important;
+/* Allow ALL table rows to expand */
+.path-mod-assign table tr {
+    height: auto !important;
 }
 
-/* Restore normal behavior for all other columns */
-.path-mod-assign .submissionstatustable td:not(:last-child),
-.path-mod-assign .generaltable td:not(:last-child) {
-    width: auto !important;
-    max-width: none !important;
-    white-space: nowrap !important;
-    overflow: visible !important;
+/* Allow ALL table cells to expand */
+.path-mod-assign table td {
+    height: auto !important;
+    vertical-align: top !important;
+}
+
+/* Target feedback comments column - second to last column in grading table */
+.path-mod-assign table tbody tr td:nth-last-child(2) {
+    word-break: break-all !important;
+    overflow-wrap: break-word !important;
+    white-space: normal !important;
+    max-width: 300px !important;
+    min-width: 200px !important;
+}
+
+/* Also target by specific class names if they exist */
+.path-mod-assign table td.feedbackcomments,
+.path-mod-assign table td.cell.c3,
+.path-mod-assign table td.cell.c4 {
+    word-break: break-all !important;
+    overflow-wrap: break-word !important;
+    white-space: normal !important;
+    max-width: 300px !important;
+    min-width: 200px !important;
 }
