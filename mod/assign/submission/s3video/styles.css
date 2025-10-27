@@ -890,18 +890,53 @@
     margin-bottom: 10px;
 }
 
-/* Gentle width constraints - preserve Moodle functionality */
+/* Ensure proper text wrapping and Moodle functionality preservation */
 .s3video-right-column textarea {
-    resize: vertical;
-    /* Only allow vertical resize */
-    max-width: 100%;
-    box-sizing: border-box;
+    resize: vertical; /* Only allow vertical resize */
+    max-width: 100% !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    white-space: pre-wrap !important; /* Preserve line breaks but wrap long lines */
+    word-wrap: break-word !important; /* Break long words */
+    overflow-wrap: break-word !important; /* Modern browsers */
+    word-break: break-word !important; /* Break long continuous text */
+    overflow-x: hidden !important; /* Prevent horizontal scroll */
+}
+
+/* Ensure all form elements wrap properly */
+.s3video-right-column input[type="text"],
+.s3video-right-column input[type="number"],
+.s3video-right-column select {
+    max-width: 100% !important;
+    box-sizing: border-box !important;
 }
 
 /* Prevent text overflow without breaking functionality */
 .s3video-right-column {
     word-wrap: break-word;
     overflow-wrap: break-word;
+    /* Ensure container doesn't expand beyond 35% */
+    max-width: 100%;
+    min-width: 0; /* Allow shrinking */
+    overflow-x: hidden; /* Prevent horizontal overflow */
+}
+
+/* Fix for any long text content that might not wrap */
+.s3video-right-column div,
+.s3video-right-column span,
+.s3video-right-column p {
+    word-wrap: break-word !important;
+    overflow-wrap: break-word !important;
+    word-break: break-word !important;
+    max-width: 100% !important;
+}
+
+/* Preserve Moodle's editor functionality */
+.s3video-right-column .editor_atto,
+.s3video-right-column .form-control,
+.s3video-right-column .form-group {
+    max-width: 100% !important;
+    box-sizing: border-box !important;
 }
 
 /* Scrollbar styling for right column */
