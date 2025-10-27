@@ -110,8 +110,8 @@ define(['jquery', 'core/ajax', 'core/templates'], function($, Ajax, Templates) {
             // Remove any existing video players to prevent duplication
             $gradingContainer.find('.s3video-grading-view, .s3video-player-container').remove();
             
-            // Store original grading content (excluding video elements)
-            var $gradingContent = $gradingContainer.children().not('.s3video-grading-view, .s3video-player-container, .s3video-two-column-layout').clone(true);
+            // Store original grading content (excluding video elements) - MOVE not clone to preserve functionality
+            var $gradingContent = $gradingContainer.children().not('.s3video-grading-view, .s3video-player-container, .s3video-two-column-layout').detach();
             
             // Create two-column layout HTML
             var twoColumnHtml = 
