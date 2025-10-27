@@ -892,15 +892,21 @@
 
 /* Ensure proper text wrapping and Moodle functionality preservation */
 .s3video-right-column textarea {
-    resize: vertical; /* Only allow vertical resize */
+    resize: vertical;
+    /* Only allow vertical resize */
     max-width: 100% !important;
     width: 100% !important;
     box-sizing: border-box !important;
-    white-space: pre-wrap !important; /* Preserve line breaks but wrap long lines */
-    word-wrap: break-word !important; /* Break long words */
-    overflow-wrap: break-word !important; /* Modern browsers */
-    word-break: break-word !important; /* Break long continuous text */
-    overflow-x: hidden !important; /* Prevent horizontal scroll */
+    white-space: pre-wrap !important;
+    /* Preserve line breaks but wrap long lines */
+    word-wrap: break-word !important;
+    /* Break long words */
+    overflow-wrap: break-word !important;
+    /* Modern browsers */
+    word-break: break-word !important;
+    /* Break long continuous text */
+    overflow-x: hidden !important;
+    /* Prevent horizontal scroll */
 }
 
 /* Ensure all form elements wrap properly */
@@ -917,8 +923,10 @@
     overflow-wrap: break-word;
     /* Ensure container doesn't expand beyond 35% */
     max-width: 100%;
-    min-width: 0; /* Allow shrinking */
-    overflow-x: hidden; /* Prevent horizontal overflow */
+    min-width: 0;
+    /* Allow shrinking */
+    overflow-x: hidden;
+    /* Prevent horizontal overflow */
 }
 
 /* Fix for any long text content that might not wrap */
@@ -979,4 +987,40 @@ body:has(.s3video-two-column-layout) .s3video-player-container:not(.s3video-two-
 /* Hide any duplicate video elements */
 .s3video-two-column-layout video+video {
     display: none !important;
+}
+
+/* ========================================
+   FEEDBACK COMMENTS TEXT WRAPPING - TARGETED FIX
+   ======================================== */
+
+/* Target ONLY the feedback comments column (last column) */
+.path-mod-assign .submissionstatustable td:last-child {
+    word-wrap: break-word !important;
+    overflow-wrap: break-word !important;
+    word-break: break-word !important;
+    white-space: pre-wrap !important;
+    min-width: 250px !important;
+    /* Ensure adequate width for feedback */
+    width: 30% !important;
+    /* Give feedback column more space */
+}
+
+/* Alternative selectors for feedback comments */
+.path-mod-assign .feedbackcomments,
+.path-mod-assign .submissioncomment,
+.path-mod-assign .feedbacktext {
+    word-wrap: break-word !important;
+    overflow-wrap: break-word !important;
+    word-break: break-word !important;
+    white-space: pre-wrap !important;
+    min-width: 250px !important;
+}
+
+/* Restore normal behavior for all other columns */
+.path-mod-assign .submissionstatustable td:not(:last-child),
+.path-mod-assign .generaltable td:not(:last-child) {
+    width: auto !important;
+    max-width: none !important;
+    white-space: nowrap !important;
+    overflow: visible !important;
 }
