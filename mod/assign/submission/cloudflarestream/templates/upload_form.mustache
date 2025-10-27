@@ -133,6 +133,11 @@
 
 {{#js}}
 require(['assignsubmission_cloudflarestream/uploader'], function(Uploader) {
-    Uploader.init({{assignmentid}}, {{submissionid}}, {{maxfilesize}});
+    Uploader.init(
+        {{assignmentid}}, 
+        {{#submissionid}}{{submissionid}}{{/submissionid}}{{^submissionid}}0{{/submissionid}}, 
+        {{maxfilesize}}, 
+        '.cloudflarestream-upload-interface'
+    );
 });
 {{/js}}

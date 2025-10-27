@@ -148,7 +148,7 @@ class assign_submission_cloudflarestream extends assign_submission_plugin {
      * @return string HTML to display
      */
     public function view(stdClass $submission, $showviewlink = true) {
-        global $DB, $OUTPUT;
+        global $DB, $OUTPUT, $PAGE;
 
         // Get the video record for this submission
         $video = $DB->get_record('assignsubmission_cfstream', 
@@ -158,14 +158,82 @@ class assign_submission_cloudflarestream extends assign_submission_plugin {
             return '';
         }
 
+        // Detect if we're in the grading interface
+        $is_grading = $this->is_grading_context();
+
         $output = '';
+        
+        // GRADING INTERFACE: Show full-width video player
+        if ($is_grading && $video->upload_status === 'ready') {
+            // Generate unique container ID for this player instance
+            $containerid = 'cloudflarestream-player-' . $submission->id . '-' . uniqid();
+            
+            // Prepare template context
+            $context = [
+                'videouid' => $video->video_uid,
+                'submissionid' => $submission->id,
+                'containerid' => $containerid
+            ];
+            
+            // Render player template (full-width, no container)
+            $output .= html_writer::start_div('cloudflarestream-grading-view');
+            $output .= $OUTPUT->render_from_template('assignsubmission_cloudflarestream/player', $context);
+            
+            // Add video metadata below player
+            if ($video->duration || $video->file_size) {
+                $output .= html_writer::start_div('cloudflarestream-metadata-display mt-3');
+                
+                if ($video->duration) {
+                    $duration = format_time($video->duration);
+                    $output .= html_writer::tag('div', 
+                        html_writer::tag('strong', get_string('duration', 'core') . ': ') . $duration,
+                        array('class' => 'cloudflarestream-metadata-item')
+                    );
+                }
+                
+                if ($video->file_size) {
+                    $filesize = display_size($video->file_size);
+                    $output .= html_writer::tag('div', 
+                        html_writer::tag('strong', get_string('size', 'core') . ': ') . $filesize,
+                        array('class' => 'cloudflarestream-metadata-item')
+                    );
+                }
+                
+                $output .= html_writer::end_div();
+            }
+            
+            $output .= html_writer::end_div();
+            
+            return $output;
+        }
+        
+        // GRADING INTERFACE: Show status for non-ready videos
+        if ($is_grading) {
+            $statuskey = 'status_' . $video->upload_status;
+            $statustext = get_string($statuskey, 'assignsubmission_cloudflarestream');
+            
+            $output .= html_writer::start_div('cloudflarestream-grading-status');
+            $output .= html_writer::tag('p', $statustext, ['class' => 'alert alert-info']);
+            
+            if ($video->upload_status === 'error' && !empty($video->error_message)) {
+                $output .= html_writer::tag('p', $video->error_message, ['class' => 'alert alert-danger']);
+            }
+            
+            $output .= html_writer::end_div();
+            
+            return $output;
+        }
+        
+        // SUBMISSION PAGE: Show boxed view with status (original behavior)
+        $output .= html_writer::start_div('cloudflarestream-submission-container', ['style' => 'border: 2px solid #0f6cbf; padding: 15px; margin: 10px 0; border-radius: 5px; background-color: #f9f9f9;']);
+        $output .= html_writer::tag('h3', get_string('cloudflarestream', 'assignsubmission_cloudflarestream'), ['style' => 'margin-top: 0; color: #0f6cbf;']);
 
         // Display video status
         $statuskey = 'status_' . $video->upload_status;
         $statustext = get_string($statuskey, 'assignsubmission_cloudflarestream');
         
         $output .= html_writer::tag('div', 
-            html_writer::tag('strong', get_string('cloudflarestream', 'assignsubmission_cloudflarestream') . ': ') . 
+            html_writer::tag('strong', get_string('status', 'core') . ': ') . 
             $statustext,
             array('class' => 'cloudflarestream-status mb-3')
         );
@@ -207,6 +275,12 @@ class assign_submission_cloudflarestream extends assign_submission_plugin {
                 
                 $output .= html_writer::end_div();
             }
+        } else if ($video->upload_status === 'pending') {
+            // Video is still uploading
+            $output .= html_writer::tag('div', 
+                get_string('videopending', 'assignsubmission_cloudflarestream'),
+                array('class' => 'alert alert-info')
+            );
         } else if ($video->upload_status === 'error' && !empty($video->error_message)) {
             // Display error message
             $output .= html_writer::tag('div', 
@@ -220,8 +294,37 @@ class assign_submission_cloudflarestream extends assign_submission_plugin {
                 array('class' => 'alert alert-warning')
             );
         }
+        
+        // Close the container div
+        $output .= html_writer::end_div();
 
         return $output;
+    }
+
+    /**
+     * Detect if we're in the grading context (teacher grading) vs submission context (student viewing).
+     *
+     * @return bool True if in grading context
+     */
+    protected function is_grading_context() {
+        global $PAGE;
+        
+        // Check if we're on the INDIVIDUAL grading page (not the grading table)
+        $action = optional_param('action', '', PARAM_ALPHA);
+        $rownum = optional_param('rownum', -1, PARAM_INT);
+        $userid = optional_param('userid', 0, PARAM_INT);
+        
+        // Individual grading page has action=grader AND (rownum OR userid)
+        if ($action === 'grader' && ($rownum >= 0 || $userid > 0)) {
+            return true;
+        }
+        
+        // Also check for action=grade (some Moodle versions use this)
+        if ($action === 'grade' && $userid > 0) {
+            return true;
+        }
+        
+        return false;
     }
 
     /**
@@ -448,15 +551,16 @@ class assign_submission_cloudflarestream extends assign_submission_plugin {
     }
 
     /**
-     * Get a summary of the submission for display.
+     * Display a summary of the submission in the grading table.
      *
      * @param stdClass $submission The submission object
-     * @param bool $showviewlink Whether to show a link to view
-     * @return string Summary text
+     * @param bool $showviewlink Whether to show a link to view the full submission
+     * @return string HTML to display
      */
     public function view_summary(stdClass $submission, & $showviewlink) {
-        global $DB;
+        global $DB, $CFG, $OUTPUT, $PAGE;
 
+        // Get the video record for this submission
         $video = $DB->get_record('assignsubmission_cfstream', 
             array('submission' => $submission->id));
 
@@ -464,10 +568,85 @@ class assign_submission_cloudflarestream extends assign_submission_plugin {
             return '';
         }
 
+        // Check if we're in grading context
+        $is_grading = $this->is_grading_context();
+        
+        if ($is_grading && $video->upload_status === 'ready') {
+            // In grading interface, show the full video player
+            $containerid = 'cloudflarestream-player-' . $submission->id . '-' . uniqid();
+            
+            $context = [
+                'videouid' => $video->video_uid,
+                'submissionid' => $submission->id,
+                'containerid' => $containerid
+            ];
+            
+            $output = html_writer::start_div('cloudflarestream-grading-view');
+            $output .= $OUTPUT->render_from_template('assignsubmission_cloudflarestream/player', $context);
+            
+            // Add metadata below player
+            if ($video->duration || $video->file_size) {
+                $output .= html_writer::start_div('cloudflarestream-metadata-display mt-3');
+                
+                if ($video->duration) {
+                    $duration = format_time($video->duration);
+                    $output .= html_writer::tag('div', 
+                        html_writer::tag('strong', get_string('duration', 'core') . ': ') . $duration,
+                        array('class' => 'cloudflarestream-metadata-item')
+                    );
+                }
+                
+                if ($video->file_size) {
+                    $filesize = display_size($video->file_size);
+                    $output .= html_writer::tag('div', 
+                        html_writer::tag('strong', get_string('size', 'core') . ': ') . $filesize,
+                        array('class' => 'cloudflarestream-metadata-item')
+                    );
+                }
+                
+                $output .= html_writer::end_div();
+            }
+            
+            $output .= html_writer::end_div();
+            
+            return $output;
+        }
+
+        // For grading table or non-ready videos, show summary with icon
         $statuskey = 'status_' . $video->upload_status;
         $statustext = get_string($statuskey, 'assignsubmission_cloudflarestream');
-
-        return get_string('cloudflarestream', 'assignsubmission_cloudflarestream') . ': ' . $statustext;
+        
+        $icon = '';
+        $output = '';
+        
+        switch ($video->upload_status) {
+            case 'ready':
+                $icon = '<i class="fa fa-video-camera text-success" aria-hidden="true"></i>';
+                $output = $icon . ' ' . $statustext;
+                
+                // Add file size if available
+                if ($video->file_size) {
+                    $output .= ' (' . display_size($video->file_size) . ')';
+                }
+                break;
+                
+            case 'pending':
+                $icon = '<i class="fa fa-clock-o text-warning" aria-hidden="true"></i> ';
+                $output = $icon . $statustext;
+                break;
+                
+            case 'error':
+                $icon = '<i class="fa fa-exclamation-triangle text-danger" aria-hidden="true"></i> ';
+                $output = $icon . $statustext;
+                break;
+                
+            case 'deleted':
+                $icon = '<i class="fa fa-trash text-muted" aria-hidden="true"></i> ';
+                $output = $icon . $statustext;
+                break;
+        }
+        
+        return $output;
     }
 
     /**
