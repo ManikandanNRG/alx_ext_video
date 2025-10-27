@@ -85,15 +85,17 @@ define(['jquery', 'core/ajax'], function($, Ajax) {
                     url: M.cfg.wwwroot + '/mod/assign/submission/s3video/ajax/get_playback_url.php',
                     method: 'GET',
                     data: {
-                        submission_id: this.submissionId,
-                        s3_key: this.s3Key,
+                        submissionid: this.submissionId,
+                        s3key: this.s3Key,
                         sesskey: M.cfg.sesskey
                     },
                     dataType: 'json'
                 }).done((data) => {
+                    console.log('S3 Video: AJAX response:', data);
                     if (data.success) {
-                        this.signedUrl = data.signed_url;
-                        this.urlExpiry = Date.now() + (data.expiry_seconds * 1000);
+                        this.signedUrl = data.data.signed_url;
+                        this.urlExpiry = Date.now() + (data.data.expires_in * 1000);
+                        console.log('S3 Video: Got signed URL:', this.signedUrl);
                         resolve();
                     } else {
                         const error = new Error(data.user_message || data.message || 'Failed to get playback URL');
@@ -143,62 +145,82 @@ define(['jquery', 'core/ajax'], function($, Ajax) {
         }
 
         /**
-         * Initialize Video.js player with the signed URL.
+         * Initialize native HTML5 video player with the signed URL.
          */
         initializeVideoJs() {
             // Clear loading indicator
             this.container.empty();
 
-            // Create video element
+            // Create video element with native HTML5 player
             this.videoElement = $('<video>')
                 .attr('id', 's3video-player-' + this.submissionId)
-                .addClass('video-js vjs-default-skin vjs-big-play-centered')
                 .attr('controls', true)
-                .attr('preload', 'auto')
+                .attr('preload', 'metadata')
+                .attr('playsinline', true)
                 .css({
                     width: '100%',
                     height: 'auto',
-                    minHeight: '400px'
+                    minHeight: '400px',
+                    backgroundColor: '#000',
+                    borderRadius: '4px'
                 });
 
             // Add source
+            console.log('S3 Video: Setting video source to:', this.signedUrl);
             const source = $('<source>')
                 .attr('src', this.signedUrl)
                 .attr('type', 'video/mp4');
 
             this.videoElement.append(source);
+            
+            // Add fallback message
+            this.videoElement.append(
+                $('<p>').text('Your browser does not support the video tag.')
+            );
+
             this.container.append(this.videoElement);
 
-            // Initialize Video.js
-            if (typeof videojs !== 'undefined') {
-                this.player = videojs(this.videoElement[0], {
-                    controls: true,
-                    autoplay: false,
-                    preload: 'auto',
-                    fluid: true,
-                    responsive: true
-                });
+            // Get native video element
+            this.player = this.videoElement[0];
 
-                // Handle player errors
-                this.player.on('error', () => {
-                    const error = this.player.error();
-                    this.handleError(new Error(error ? error.message : 'Video playback error'));
-                });
-
-                // Handle player ready
-                this.player.ready(() => {
-                    // eslint-disable-next-line no-console
-                    console.log('Video.js player ready');
-                });
-            } else {
-                // Fallback to native HTML5 video if Video.js not loaded
-                // eslint-disable-next-line no-console
-                console.warn('Video.js not loaded, using native HTML5 video player');
+            // Handle video events
+            this.videoElement.on('error', () => {
+                const error = this.player.error;
+                let errorMessage = 'Video playback error';
                 
-                this.videoElement.on('error', () => {
-                    this.handleError(new Error('Video playback error'));
-                });
-            }
+                if (error) {
+                    switch (error.code) {
+                        case 1: // MEDIA_ERR_ABORTED
+                            errorMessage = 'Video playback was aborted';
+                            break;
+                        case 2: // MEDIA_ERR_NETWORK
+                            errorMessage = 'Network error occurred while loading video';
+                            break;
+                        case 3: // MEDIA_ERR_DECODE
+                            errorMessage = 'Video format not supported or corrupted';
+                            break;
+                        case 4: // MEDIA_ERR_SRC_NOT_SUPPORTED
+                            errorMessage = 'Video format not supported by your browser';
+                            break;
+                        default:
+                            errorMessage = 'Unknown video error occurred';
+                    }
+                }
+                
+                this.handleError(new Error(errorMessage));
+            });
+
+            // Handle successful load
+            this.videoElement.on('loadedmetadata', () => {
+                // eslint-disable-next-line no-console
+                console.log('Video loaded successfully');
+            });
+
+            // Handle when video can start playing
+            this.videoElement.on('canplay', () => {
+                // eslint-disable-next-line no-console
+                console.log('Video ready to play');
+            });
         }
 
         /**
@@ -246,18 +268,21 @@ define(['jquery', 'core/ajax'], function($, Ajax) {
                     await this.getSignedUrl();
 
                     // Update video source
-                    if (this.player) {
-                        this.player.src({
-                            type: 'video/mp4',
-                            src: this.signedUrl
-                        });
-
-                        // Restore playback position
-                        this.player.currentTime(currentTime);
+                    if (this.player && this.videoElement) {
+                        // Update the source element
+                        this.videoElement.find('source').attr('src', this.signedUrl);
                         
-                        if (!wasPaused) {
-                            this.player.play();
-                        }
+                        // Reload the video
+                        this.player.load();
+                        
+                        // Restore playback position when metadata is loaded
+                        this.videoElement.one('loadedmetadata', () => {
+                            this.player.currentTime = currentTime;
+                            
+                            if (!wasPaused) {
+                                this.player.play();
+                            }
+                        });
                     }
 
                     // Schedule next refresh
@@ -427,11 +452,15 @@ define(['jquery', 'core/ajax'], function($, Ajax) {
             }
 
             if (this.player) {
-                this.player.dispose();
+                // Pause and clean up native video element
+                this.player.pause();
+                this.player.src = '';
+                this.player.load();
                 this.player = null;
             }
 
             if (this.videoElement) {
+                this.videoElement.off(); // Remove all event listeners
                 this.videoElement.remove();
                 this.videoElement = null;
             }

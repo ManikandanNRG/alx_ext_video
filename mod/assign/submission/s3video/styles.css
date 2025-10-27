@@ -625,3 +625,105 @@
         display: none;
     }
 }
+
+/* ========================================
+   GRADING INTERFACE LAYOUT
+   ======================================== */
+
+/* Grading view container - no borders, full width */
+.s3video-grading-view {
+    width: 100%;
+    margin: 0;
+    padding: 0;
+}
+
+/* Full-width player in grading interface */
+.s3video-grading-view .s3video-player-container {
+    width: 100%;
+    max-width: 100%;
+    min-height: 500px;
+    margin: 0;
+    border-radius: 4px;
+}
+
+/* Responsive aspect ratio for grading view */
+.s3video-grading-view .s3video-player-wrapper {
+    position: relative;
+    width: 100%;
+    padding-top: 56.25%; /* 16:9 aspect ratio */
+}
+
+.s3video-grading-view .s3video-player-wrapper .s3video-player-container {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+}
+
+/* Video metadata in grading view */
+.s3video-grading-view .s3video-metadata-display {
+    margin-top: 15px;
+    padding: 12px 15px;
+    background-color: #f8f9fa;
+    border-radius: 4px;
+    border: 1px solid #dee2e6;
+}
+
+.s3video-grading-view .s3video-metadata-item {
+    margin: 5px 0;
+    font-size: 14px;
+    color: #495057;
+}
+
+.s3video-grading-view .s3video-metadata-item strong {
+    color: #212529;
+    margin-right: 5px;
+}
+
+/* Status display in grading view */
+.s3video-grading-status {
+    padding: 20px;
+    text-align: center;
+}
+
+.s3video-grading-status .alert {
+    margin-bottom: 10px;
+}
+
+/* Ensure grading view works in Moodle's grading interface */
+.path-mod-assign [data-region="grade-panel"] .s3video-grading-view,
+.path-mod-assign .submissionstatustable .s3video-grading-view {
+    width: 100%;
+}
+
+/* Remove any default margins/padding from Moodle's grading interface */
+.path-mod-assign [data-region="grade-panel"] .s3video-grading-view .s3video-player-container,
+.path-mod-assign .submissionstatustable .s3video-grading-view .s3video-player-container {
+    margin: 0;
+}
+
+/* Responsive adjustments for grading view */
+@media (max-width: 1200px) {
+    .s3video-grading-view .s3video-player-container {
+        min-height: 400px;
+    }
+}
+
+@media (max-width: 768px) {
+    .s3video-grading-view .s3video-player-container {
+        min-height: 300px;
+    }
+    
+    .s3video-grading-view .s3video-metadata-display {
+        padding: 10px;
+        font-size: 13px;
+    }
+}
+
+@media (max-width: 480px) {
+    .s3video-grading-view .s3video-player-container {
+        min-height: 250px;
+    }
+}
