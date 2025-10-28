@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Cloudflare Direct Upload</title>
+    <script src="https://cdn.jsdelivr.net/npm/tus-js-client@3.1.1/dist/tus.min.js"></script>
+</head>
+<body>
+    <h1>Test Cloudflare Direct Upload</h1>
+    <input type="file" id="fileInput" accept="video/*">
+    <button onclick="testUpload()">Test Upload</button>
+    <div id="status"></div>
+
+    <script>
+    function testUpload() {
+        const file = document.getElementById('fileInput').files[0];
+        if (!file) {
+            alert('Please select a file');
+            return;
+        }
+
+        // First get a fresh upload URL
+        console.log('Getting fresh upload URL...');
+        fetch('/mod/assign/submission/cloudflarestream/test_cf_api_simple.php')
+            .then(response => response.text())
+            .then(html => {
+                // Extract upload URL from the response
+                const match = html.match(/Upload URL received/);
+                if (!match) {
+                    console.error('Could not get upload URL from API');
+                    return;
+                }
+                
+                // For now, let's test with a known pattern
+                // You'll need to get a fresh URL from your Moodle upload form
+                alert('Please get a fresh upload URL from your Moodle form and update the code');
+                return;
+            });
+        
+        // Test URL from your logs (EXPIRED - need fresh one)
+        const uploadURL = 'https://upload.cloudflarestream.com/4efe402b49f208e4bb17c7c6cc92ceb7';
+        
+        console.log('Testing with URL:', uploadURL);
+        
+        // Test 1: Direct TUS with endpoint (what we've been trying)
+        console.log('=== TEST 1: TUS with endpoint ===');
+        const upload1 = new tus.Upload(file, {
+            endpoint: uploadURL,
+            onError: (error) => {
+                console.log('TEST 1 FAILED:', error);
+                
+                // Test 2: TUS with uploadUrl
+                console.log('=== TEST 2: TUS with uploadUrl ===');
+                const upload2 = new tus.Upload(file, {
+                    uploadUrl: uploadURL,
+                    onError: (error) => {
+                        console.log('TEST 2 FAILED:', error);
+                        
+                        // Test 3: Direct XMLHttpRequest PATCH (correct method?)
+                        console.log('=== TEST 3: Direct PATCH ===');
+                        testDirectPatch(file, uploadURL);
+                    },
+                    onSuccess: () => console.log('TEST 2 SUCCESS'),
+                    onProgress: (uploaded, total) => console.log('TEST 2 Progress:', uploaded, '/', total)
+                });
+                upload2.start();
+            },
+            onSuccess: () => console.log('TEST 1 SUCCESS'),
+            onProgress: (uploaded, total) => console.log('TEST 1 Progress:', uploaded, '/', total)
+        });
+        upload1.start();
+    }
+    
+    function testDirectPatch(file, uploadURL) {
+        const xhr = new XMLHttpRequest();
+        xhr.open('PATCH', uploadURL);
+        xhr.setRequestHeader('Content-Type', 'application/offset+octet-stream');
+        xhr.setRequestHeader('Upload-Offset', '0');
+        xhr.setRequestHeader('Tus-Resumable', '1.0.0');
+        
+        xhr.onload = () => {
+            console.log('PATCH Response:', xhr.status, xhr.responseText);
+            
+            // Test 4: Direct POST (what Cloudflare actually wants)
+            console.log('=== TEST 4: Direct POST ===');
+            testDirectPost(file, uploadURL);
+        };
+        
+        xhr.onerror = () => {
+            console.log('PATCH Error:', xhr.status, xhr.responseText);
+            
+            // Test 4: Direct POST (what Cloudflare actually wants)
+            console.log('=== TEST 4: Direct POST ===');
+            testDirectPost(file, uploadURL);
+        };
+        
+        xhr.send(file);
+    }
+    
+    function testDirectPost(file, uploadURL) {
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', uploadURL);
+        xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream');
+        
+        xhr.onload = () => {
+            console.log('POST Response:', xhr.status, xhr.responseText);
+            if (xhr.status >= 200 && xhr.status < 300) {
+                console.log('SUCCESS! Direct POST worked!');
+            }
+        };
+        
+        xhr.onerror = () => {
+            console.log('POST Error:', xhr.status, xhr.responseText);
+        };
+        
+        xhr.send(file);
+    }
+    </script>
+</body>
+</html>

@@ -212,13 +212,19 @@ define(['jquery', 'core/ajax', 'core/notification', 'core/str'], function($, Aja
 
             // Check MIME type
             if (!file.type) {
+                console.log('DEBUG: File has no MIME type');
                 return {
                     valid: false,
                     error: 'Unable to determine file type'
                 };
             }
 
+            console.log('DEBUG: File MIME type:', file.type);
+            console.log('DEBUG: ALLOWED_MIME_TYPES:', ALLOWED_MIME_TYPES);
+            console.log('DEBUG: file.type.startsWith("video/"):', file.type.startsWith('video/'));
+
             if (!ALLOWED_MIME_TYPES.includes(file.type) && !file.type.startsWith('video/')) {
+                console.log('DEBUG: MIME type validation FAILED');
                 return {
                     valid: false,
                     error: 'Unsupported file type: ' + file.type + '. Please upload a video file.'
@@ -229,7 +235,11 @@ define(['jquery', 'core/ajax', 'core/notification', 'core/str'], function($, Aja
             const extension = this.getFileExtension(file.name);
             const allowedExtensions = ['mp4', 'mov', 'avi', 'mkv', 'webm', 'mpeg', 'mpg', 'ogv', '3gp', 'flv'];
             
+            console.log('DEBUG: File extension:', extension);
+            console.log('DEBUG: Extension in allowed list:', allowedExtensions.includes(extension.toLowerCase()));
+            
             if (!allowedExtensions.includes(extension.toLowerCase())) {
+                console.log('DEBUG: Extension validation FAILED');
                 return {
                     valid: false,
                     error: 'Unsupported file extension: .' + extension + '. Allowed extensions: ' + allowedExtensions.join(', ')
@@ -371,7 +381,8 @@ define(['jquery', 'core/ajax', 'core/notification', 'core/str'], function($, Aja
         }
 
         /**
-         * Upload file to Cloudflare using tus protocol.
+         * Upload file to Cloudflare using direct HTTP upload.
+         * Cloudflare's direct upload URL expects a simple PUT request, not TUS protocol.
          *
          * @param {File} file The file to upload
          * @param {string} uploadURL The Cloudflare upload URL
@@ -380,21 +391,53 @@ define(['jquery', 'core/ajax', 'core/notification', 'core/str'], function($, Aja
          */
         uploadFile(file, uploadURL, uid) {
             return new Promise((resolve, reject) => {
-                // Wait for tus library to load
-                const checkTus = setInterval(() => {
-                    if (this.tus) {
-                        clearInterval(checkTus);
-                        this.performTusUpload(file, uploadURL, uid, resolve, reject);
+                const xhr = new XMLHttpRequest();
+                
+                // Cloudflare expects a POST request with form data
+                xhr.open('POST', uploadURL, true);
+                
+                // Don't set Content-Type - let browser set it for FormData
+                // xhr.setRequestHeader('Content-Type', ...) - removed
+                
+                // Track upload progress
+                xhr.upload.onprogress = (event) => {
+                    if (event.lengthComputable) {
+                        const percentage = Math.round((event.loaded / event.total) * 100);
+                        this.updateProgress(percentage);
                     }
-                }, 100);
-
-                // Timeout after 10 seconds
-                setTimeout(() => {
-                    clearInterval(checkTus);
-                    if (!this.tus) {
-                        reject(new Error('Upload library failed to load'));
+                };
+                
+                // Handle successful upload
+                xhr.onload = () => {
+                    if (xhr.status >= 200 && xhr.status < 300) {
+                        resolve();
+                    } else {
+                        reject(new Error(`Upload failed with status ${xhr.status}: ${xhr.responseText}`));
                     }
-                }, 10000);
+                };
+                
+                // Handle upload errors
+                xhr.onerror = () => {
+                    reject(new Error('Network error during upload'));
+                };
+                
+                // Handle upload timeout
+                xhr.ontimeout = () => {
+                    reject(new Error('Upload timed out'));
+                };
+                
+                // Set timeout (30 seconds)
+                xhr.timeout = 30000;
+                
+                // Store reference for potential cancellation
+                this.currentUpload = xhr;
+                
+                // Create FormData and append the file
+                const formData = new FormData();
+                formData.append('file', file);
+                
+                // Start the upload with FormData
+                xhr.send(formData);
             });
         }
 
@@ -409,10 +452,10 @@ define(['jquery', 'core/ajax', 'core/notification', 'core/str'], function($, Aja
          */
         performTusUpload(file, uploadURL, uid, resolve, reject) {
             const upload = new this.tus.Upload(file, {
-                // Cloudflare Stream provides a pre-created upload URL
-                endpoint: uploadURL,
-                // Cloudflare's TUS implementation doesn't support metadata in Upload-Metadata header
-                // Remove metadata to avoid "Decoding Error"
+                // Cloudflare provides pre-created URL - tell TUS to use it directly
+                uploadUrl: uploadURL,
+                storeFingerprintForResuming: false,
+                removeFingerprintOnSuccess: true,
                 retryDelays: [0, 3000, 5000, 10000, 20000],
                 onError: (error) => {
                     this.currentUpload = null;
@@ -1057,35 +1100,24 @@ define(['jquery', 'core/ajax', 'core/notification', 'core/str'], function($, Aja
                     return Math.floor(delay + jitter);
                 };
 
-                const attemptUpload = () => {
+                const attemptUpload = async () => {
                     attemptCount++;
                     
-                    // Wait for tus library to load
-                    const checkTus = setInterval(() => {
-                        if (this.tus) {
-                            clearInterval(checkTus);
-                            this.performTusUploadWithRetry(
-                                file, uploadURL, uid, 
-                                attemptCount, maxAttempts, calculateDelay,
-                                resolve, reject, attemptUpload
-                            );
-                        }
-                    }, 100);
-
-                    // Timeout after 10 seconds
-                    setTimeout(() => {
-                        clearInterval(checkTus);
-                        if (!this.tus) {
-                            const error = new Error('Upload library failed to load. Please refresh the page and try again.');
-                            error.errorType = 'library_error';
-                            error.canRetry = true;
-                            error.suggestions = [
-                                'Refresh the page and try again',
-                                'Try using a different web browser'
-                            ];
+                    try {
+                        // Use the new direct POST upload method
+                        await this.uploadFile(file, uploadURL, uid);
+                        resolve(); // Success
+                    } catch (error) {
+                        if (attemptCount < maxAttempts) {
+                            // Retry with exponential backoff
+                            const delay = calculateDelay(attemptCount);
+                            console.log(`Upload attempt ${attemptCount} failed, retrying in ${delay}ms...`);
+                            setTimeout(attemptUpload, delay);
+                        } else {
+                            // Final failure
                             reject(error);
                         }
-                    }, 10000);
+                    }
                 };
 
                 attemptUpload();
@@ -1109,11 +1141,14 @@ define(['jquery', 'core/ajax', 'core/notification', 'core/str'], function($, Aja
             // Use optimized settings if available
             const settings = this.optimizedSettings || {};
             
+            // Cloudflare Stream provides a pre-created TUS upload URL
+            // We need to configure TUS to use it directly without trying to create a new upload
             const upload = new this.tus.Upload(file, {
-                // Cloudflare Stream provides a pre-created upload URL
-                endpoint: uploadURL,
-                // Cloudflare's TUS implementation doesn't support metadata in Upload-Metadata header
-                // Remove metadata to avoid "Decoding Error"
+                // CRITICAL: Set uploadUrl to the Cloudflare URL - this tells TUS the upload already exists
+                uploadUrl: uploadURL,
+                // Disable fingerprinting and URL storage to prevent resume attempts
+                storeFingerprintForResuming: false,
+                removeFingerprintOnSuccess: true,
                 retryDelays: settings.retryDelays || [0, 1000, 3000, 5000, 10000, 20000],
                 chunkSize: settings.chunkSize || 5242880, // 5MB chunks
                 uploadTimeout: settings.timeout || 30000,
