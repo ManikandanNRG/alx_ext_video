@@ -116,12 +116,19 @@ try {
     $status = isset($videodetails->status->state) ? $videodetails->status->state : 'unknown';
     
     // Map Cloudflare status to our status.
-    $uploadstatus = 'ready';
-    if ($status === 'queued' || $status === 'inprogress') {
+    if ($status === 'ready') {
+        $uploadstatus = 'ready';
+    } else if ($status === 'queued' || $status === 'inprogress') {
         $uploadstatus = 'uploading';
     } else if ($status === 'error') {
         $uploadstatus = 'error';
+    } else {
+        // Default to ready if status is unknown but video details were fetched successfully
+        $uploadstatus = 'ready';
     }
+    
+    // Log the status mapping for debugging
+    error_log("Cloudflare status: $status -> DB status: $uploadstatus");
     
     // Get the existing database record.
     $record = $DB->get_record('assignsubmission_cfstream', 
