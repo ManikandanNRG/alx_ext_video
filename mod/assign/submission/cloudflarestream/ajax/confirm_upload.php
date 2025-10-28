@@ -71,14 +71,19 @@ try {
     // Get the submission record.
     $submission = $DB->get_record('assign_submission', array('id' => $submissionid), '*', MUST_EXIST);
     
-    // Verify this is the user's submission.
-    if ($submission->userid != $USER->id) {
-        throw new moodle_exception('nopermission', 'assignsubmission_cloudflarestream');
-    }
-    
     // Get the assignment to verify context.
     list($course, $cm) = get_course_and_cm_from_instance($submission->assignment, 'assign');
     $context = context_module::instance($cm->id);
+    
+    // Verify user has permission to confirm this upload.
+    // Allow: submission owner, teachers who can grade, or site admins
+    $canconfirm = ($submission->userid == $USER->id) || 
+                  has_capability('mod/assign:grade', $context) || 
+                  is_siteadmin();
+    
+    if (!$canconfirm) {
+        throw new moodle_exception('nopermission', 'assignsubmission_cloudflarestream');
+    }
     
     // Create assignment object.
     $assign = new assign($context, $cm, $course);

@@ -13,7 +13,7 @@
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-define(['jquery', 'core/ajax', 'core/notification', 'core/str'], function($, Ajax, Notification, Str) {
+define(['jquery', 'core/ajax', 'core/notification', 'core/str'], function ($, Ajax, Notification, Str) {
 
     /**
      * Maximum file size (5GB in bytes).
@@ -56,7 +56,7 @@ define(['jquery', 'core/ajax', 'core/notification', 'core/str'], function($, Aja
             this.currentUpload = null;
             this.retryCount = 0;
             this.maxRetries = 3;
-            
+
             // Initialize tus client (will be loaded dynamically)
             this.tus = null;
         }
@@ -68,7 +68,7 @@ define(['jquery', 'core/ajax', 'core/notification', 'core/str'], function($, Aja
          */
         init(containerSelector) {
             this.container = $(containerSelector);
-            
+
             if (this.container.length === 0) {
                 return;
             }
@@ -234,10 +234,10 @@ define(['jquery', 'core/ajax', 'core/notification', 'core/str'], function($, Aja
             // Check file extension
             const extension = this.getFileExtension(file.name);
             const allowedExtensions = ['mp4', 'mov', 'avi', 'mkv', 'webm', 'mpeg', 'mpg', 'ogv', '3gp', 'flv'];
-            
+
             console.log('DEBUG: File extension:', extension);
             console.log('DEBUG: Extension in allowed list:', allowedExtensions.includes(extension.toLowerCase()));
-            
+
             if (!allowedExtensions.includes(extension.toLowerCase())) {
                 console.log('DEBUG: Extension validation FAILED');
                 return {
@@ -263,7 +263,7 @@ define(['jquery', 'core/ajax', 'core/notification', 'core/str'], function($, Aja
                 };
             }
 
-            return {valid: true};
+            return { valid: true };
         }
 
         /**
@@ -392,13 +392,13 @@ define(['jquery', 'core/ajax', 'core/notification', 'core/str'], function($, Aja
         uploadFile(file, uploadURL, uid) {
             return new Promise((resolve, reject) => {
                 const xhr = new XMLHttpRequest();
-                
+
                 // Cloudflare expects a POST request with form data
                 xhr.open('POST', uploadURL, true);
-                
+
                 // Don't set Content-Type - let browser set it for FormData
                 // xhr.setRequestHeader('Content-Type', ...) - removed
-                
+
                 // Track upload progress
                 xhr.upload.onprogress = (event) => {
                     if (event.lengthComputable) {
@@ -406,7 +406,7 @@ define(['jquery', 'core/ajax', 'core/notification', 'core/str'], function($, Aja
                         this.updateProgress(percentage);
                     }
                 };
-                
+
                 // Handle successful upload
                 xhr.onload = () => {
                     if (xhr.status >= 200 && xhr.status < 300) {
@@ -415,27 +415,27 @@ define(['jquery', 'core/ajax', 'core/notification', 'core/str'], function($, Aja
                         reject(new Error(`Upload failed with status ${xhr.status}: ${xhr.responseText}`));
                     }
                 };
-                
+
                 // Handle upload errors
                 xhr.onerror = () => {
                     reject(new Error('Network error during upload'));
                 };
-                
+
                 // Handle upload timeout
                 xhr.ontimeout = () => {
                     reject(new Error('Upload timed out'));
                 };
-                
+
                 // Set timeout (30 seconds)
                 xhr.timeout = 30000;
-                
+
                 // Store reference for potential cancellation
                 this.currentUpload = xhr;
-                
+
                 // Create FormData and append the file
                 const formData = new FormData();
                 formData.append('file', file);
-                
+
                 // Start the upload with FormData
                 xhr.send(formData);
             });
@@ -454,16 +454,35 @@ define(['jquery', 'core/ajax', 'core/notification', 'core/str'], function($, Aja
             const upload = new this.tus.Upload(file, {
                 // Cloudflare provides pre-created URL - tell TUS to use it directly
                 uploadUrl: uploadURL,
-                storeFingerprintForResuming: false,
+                storeFingerprintForResuming: true, // Enable resume for reliability
                 removeFingerprintOnSuccess: true,
-                retryDelays: [0, 3000, 5000, 10000, 20000],
+                retryDelays: [0, 2000, 5000, 10000, 20000, 30000],
+                chunkSize: 5 * 1024 * 1024, // 5MB chunks - more reliable for most connections
+                uploadLengthDeferred: false,
+                parallelUploads: 1,
+                uploadDataDuringCreation: true,
                 onError: (error) => {
+                    console.error('Upload error:', error);
                     this.currentUpload = null;
-                    reject(error);
+
+                    // Better error messages for common issues
+                    let userMessage = error.message || 'Upload failed';
+                    if (error.message && error.message.includes('timeout')) {
+                        userMessage = 'Upload timeout - this can happen with large files on slow connections. Please try again or use a smaller file.';
+                    } else if (error.message && error.message.includes('network')) {
+                        userMessage = 'Network error - please check your internet connection and try again.';
+                    }
+
+                    reject(new Error(userMessage));
                 },
                 onProgress: (bytesUploaded, bytesTotal) => {
                     const percentage = Math.round((bytesUploaded / bytesTotal) * 100);
                     this.updateProgress(percentage);
+
+                    // Show detailed progress for large files
+                    const uploadedMB = Math.round(bytesUploaded / 1024 / 1024);
+                    const totalMB = Math.round(bytesTotal / 1024 / 1024);
+                    console.log(`Upload progress: ${uploadedMB}MB / ${totalMB}MB (${percentage}%)`);
                 },
                 onSuccess: () => {
                     this.currentUpload = null;
@@ -496,7 +515,7 @@ define(['jquery', 'core/ajax', 'core/notification', 'core/str'], function($, Aja
                     sesskey: M.cfg.sesskey
                 });
                 console.log('================================');
-                
+
                 $.ajax({
                     url: M.cfg.wwwroot + '/mod/assign/submission/cloudflarestream/ajax/confirm_upload.php',
                     method: 'POST',
@@ -535,7 +554,7 @@ define(['jquery', 'core/ajax', 'core/notification', 'core/str'], function($, Aja
                         'Check your internet connection',
                         'Refresh the page and try again'
                     ];
-                    
+
                     // Try to parse error response
                     if (jqXHR.responseJSON && jqXHR.responseJSON.user_message) {
                         errorMessage = jqXHR.responseJSON.user_message;
@@ -553,7 +572,7 @@ define(['jquery', 'core/ajax', 'core/notification', 'core/str'], function($, Aja
                             'Contact support if the problem persists'
                         ];
                     }
-                    
+
                     const error = new Error(errorMessage);
                     error.errorType = errorType;
                     error.suggestions = suggestions;
@@ -591,7 +610,7 @@ define(['jquery', 'core/ajax', 'core/notification', 'core/str'], function($, Aja
         showSuccess() {
             this.uploadInProgress = false;
             this.progressContainer.hide();
-            
+
             Str.get_string('uploadsuccess', 'assignsubmission_cloudflarestream').then((message) => {
                 this.statusMessage.html(message)
                     .addClass('alert alert-success')
@@ -614,7 +633,7 @@ define(['jquery', 'core/ajax', 'core/notification', 'core/str'], function($, Aja
          */
         showError(error) {
             const errorMessage = error instanceof Error ? error.message : error;
-            
+
             this.statusMessage.html(errorMessage)
                 .addClass('alert alert-danger')
                 .show();
@@ -648,7 +667,7 @@ define(['jquery', 'core/ajax', 'core/notification', 'core/str'], function($, Aja
 
             // Analyze error and provide specific guidance
             const errorAnalysis = this.analyzeError(error);
-            
+
             // Show comprehensive error message with recovery suggestions
             this.showComprehensiveError(errorAnalysis);
         }
@@ -688,10 +707,10 @@ define(['jquery', 'core/ajax', 'core/notification', 'core/str'], function($, Aja
                     return 'retry_refresh_page'; // Default fallback
                 });
                 analysis.canRetry = error.canRetry !== false;
-                
+
                 // Determine if error is transient based on type
                 analysis.isTransient = ['network_error', 'server_error', 'rate_limit', 'api_error'].includes(error.errorType);
-                
+
                 return analysis;
             }
 
@@ -700,7 +719,7 @@ define(['jquery', 'core/ajax', 'core/notification', 'core/str'], function($, Aja
             const errorLower = errorMessage.toLowerCase();
 
             // Network-related errors
-            if (errorLower.includes('network') || errorLower.includes('connection') || 
+            if (errorLower.includes('network') || errorLower.includes('connection') ||
                 errorLower.includes('timeout') || errorLower.includes('fetch')) {
                 analysis.type = 'network';
                 analysis.message = 'Network connection error. Please check your internet connection and try again.';
@@ -708,8 +727,8 @@ define(['jquery', 'core/ajax', 'core/notification', 'core/str'], function($, Aja
                 analysis.isTransient = true;
             }
             // File size errors
-            else if (errorLower.includes('file size') || errorLower.includes('too large') || 
-                     errorLower.includes('exceeds')) {
+            else if (errorLower.includes('file size') || errorLower.includes('too large') ||
+                errorLower.includes('exceeds')) {
                 analysis.type = 'file_size';
                 analysis.message = errorMessage; // Use the specific size message
                 analysis.suggestions = ['retry_smaller_file'];
@@ -717,8 +736,8 @@ define(['jquery', 'core/ajax', 'core/notification', 'core/str'], function($, Aja
                 analysis.isTransient = false;
             }
             // File type/format errors
-            else if (errorLower.includes('file type') || errorLower.includes('format') || 
-                     errorLower.includes('mime') || errorLower.includes('extension')) {
+            else if (errorLower.includes('file type') || errorLower.includes('format') ||
+                errorLower.includes('mime') || errorLower.includes('extension')) {
                 analysis.type = 'file_format';
                 analysis.message = 'Unsupported video format. Please use MP4, MOV, AVI, MKV, or WebM format.';
                 analysis.suggestions = ['retry_different_file'];
@@ -726,8 +745,8 @@ define(['jquery', 'core/ajax', 'core/notification', 'core/str'], function($, Aja
                 analysis.isTransient = false;
             }
             // Authentication/permission errors
-            else if (errorLower.includes('permission') || errorLower.includes('unauthorized') || 
-                     errorLower.includes('forbidden') || errorLower.includes('auth')) {
+            else if (errorLower.includes('permission') || errorLower.includes('unauthorized') ||
+                errorLower.includes('forbidden') || errorLower.includes('auth')) {
                 analysis.type = 'permission';
                 analysis.message = 'You do not have permission to upload videos. Please contact your instructor.';
                 analysis.suggestions = ['retry_refresh_page', 'retry_contact_support'];
@@ -735,8 +754,8 @@ define(['jquery', 'core/ajax', 'core/notification', 'core/str'], function($, Aja
                 analysis.isTransient = false;
             }
             // Quota/storage errors
-            else if (errorLower.includes('quota') || errorLower.includes('storage') || 
-                     errorLower.includes('limit exceeded')) {
+            else if (errorLower.includes('quota') || errorLower.includes('storage') ||
+                errorLower.includes('limit exceeded')) {
                 analysis.type = 'quota';
                 analysis.message = 'Storage quota exceeded. Please contact your administrator or try again later.';
                 analysis.suggestions = ['retry_wait_and_retry', 'retry_contact_support'];
@@ -744,8 +763,8 @@ define(['jquery', 'core/ajax', 'core/notification', 'core/str'], function($, Aja
                 analysis.isTransient = true;
             }
             // Server/service errors
-            else if (errorLower.includes('server') || errorLower.includes('service') || 
-                     errorLower.includes('unavailable') || errorLower.includes('maintenance')) {
+            else if (errorLower.includes('server') || errorLower.includes('service') ||
+                errorLower.includes('unavailable') || errorLower.includes('maintenance')) {
                 analysis.type = 'server';
                 analysis.message = 'The video service is temporarily unavailable. Please try again in a few minutes.';
                 analysis.suggestions = ['retry_wait_and_retry', 'retry_refresh_page'];
@@ -809,13 +828,13 @@ define(['jquery', 'core/ajax', 'core/notification', 'core/str'], function($, Aja
             let suggestionsDiv = null;
             if (errorAnalysis.suggestions && errorAnalysis.suggestions.length > 0) {
                 suggestionsDiv = $('<div>').addClass('mt-3');
-                
+
                 const suggestionsTitle = $('<p>')
                     .addClass('mb-2 font-weight-bold')
                     .text('You can try the following:');
-                
+
                 const suggestionsList = $('<ul>').addClass('mb-2');
-                
+
                 errorAnalysis.suggestions.forEach(suggestion => {
                     const suggestionText = this.getSuggestionText(suggestion);
                     if (suggestionText) {
@@ -888,7 +907,7 @@ define(['jquery', 'core/ajax', 'core/notification', 'core/str'], function($, Aja
         performManualRetry() {
             this.clearError();
             this.retryCount = 0; // Reset retry count for manual retries
-            
+
             // If we have a current upload that can be resumed
             if (this.currentUpload) {
                 try {
@@ -916,7 +935,7 @@ define(['jquery', 'core/ajax', 'core/notification', 'core/str'], function($, Aja
         performSmartRetry(errorAnalysis) {
             this.clearError();
             this.retryCount++;
-            
+
             // Adjust settings based on error type
             if (errorAnalysis.type === 'network_error') {
                 // For network errors, use smaller chunks and longer timeouts
@@ -929,7 +948,7 @@ define(['jquery', 'core/ajax', 'core/notification', 'core/str'], function($, Aja
                 }, 5000);
                 return;
             }
-            
+
             // Immediate retry for other error types
             this.retry();
         }
@@ -945,7 +964,7 @@ define(['jquery', 'core/ajax', 'core/notification', 'core/str'], function($, Aja
                 parallelUploads: 1, // Ensure no parallel uploads
                 timeout: 60000 // 60 second timeout
             };
-            
+
             this.showConnectionWarning('optimized', {
                 message: 'Upload optimized for slow connection'
             });
@@ -1037,7 +1056,7 @@ define(['jquery', 'core/ajax', 'core/notification', 'core/str'], function($, Aja
             helpModal.modal('show');
 
             // Remove from DOM when hidden
-            helpModal.on('hidden.bs.modal', function() {
+            helpModal.on('hidden.bs.modal', function () {
                 helpModal.remove();
             });
         }
@@ -1054,7 +1073,7 @@ define(['jquery', 'core/ajax', 'core/notification', 'core/str'], function($, Aja
          */
         retry() {
             this.clearError();
-            
+
             // If we have a current upload that can be resumed
             if (this.currentUpload) {
                 try {
@@ -1084,17 +1103,17 @@ define(['jquery', 'core/ajax', 'core/notification', 'core/str'], function($, Aja
             return new Promise((resolve, reject) => {
                 let attemptCount = 0;
                 const maxAttempts = 3;
-                
+
                 // Exponential backoff with jitter
                 const calculateDelay = (attempt) => {
                     const baseDelay = 1000; // 1 second
                     const maxDelay = 30000; // 30 seconds
                     const backoffMultiplier = 2.0;
                     const jitterFactor = 0.1;
-                    
+
                     let delay = baseDelay * Math.pow(backoffMultiplier, attempt - 1);
                     delay = Math.min(delay, maxDelay);
-                    
+
                     // Add jitter to avoid thundering herd
                     const jitter = delay * jitterFactor * Math.random();
                     return Math.floor(delay + jitter);
@@ -1102,7 +1121,7 @@ define(['jquery', 'core/ajax', 'core/notification', 'core/str'], function($, Aja
 
                 const attemptUpload = async () => {
                     attemptCount++;
-                    
+
                     try {
                         // Use the new direct POST upload method
                         await this.uploadFile(file, uploadURL, uid);
@@ -1140,7 +1159,7 @@ define(['jquery', 'core/ajax', 'core/notification', 'core/str'], function($, Aja
         performTusUploadWithRetry(file, uploadURL, uid, attemptCount, maxAttempts, calculateDelay, resolve, reject, attemptUpload) {
             // Use optimized settings if available
             const settings = this.optimizedSettings || {};
-            
+
             // Cloudflare Stream provides a pre-created TUS upload URL
             // We need to configure TUS to use it directly without trying to create a new upload
             const upload = new this.tus.Upload(file, {
@@ -1154,19 +1173,19 @@ define(['jquery', 'core/ajax', 'core/notification', 'core/str'], function($, Aja
                 uploadTimeout: settings.timeout || 30000,
                 onError: (error) => {
                     this.currentUpload = null;
-                    
+
                     // Enhanced error analysis
                     const errorAnalysis = this.analyzeUploadError(error);
-                    
+
                     if (errorAnalysis.isTransient && attemptCount < maxAttempts) {
                         const delay = calculateDelay(attemptCount);
-                        
+
                         // eslint-disable-next-line no-console
                         console.log(`Upload attempt ${attemptCount} failed (${errorAnalysis.type}), retrying in ${delay}ms...`);
-                        
+
                         // Show enhanced retry message to user
                         this.showEnhancedRetryMessage(attemptCount, maxAttempts, delay, errorAnalysis);
-                        
+
                         // Retry after calculated delay
                         setTimeout(() => {
                             attemptUpload();
@@ -1185,7 +1204,7 @@ define(['jquery', 'core/ajax', 'core/notification', 'core/str'], function($, Aja
                 onProgress: (bytesUploaded, bytesTotal) => {
                     const percentage = Math.round((bytesUploaded / bytesTotal) * 100);
                     this.updateProgress(percentage);
-                    
+
                     // Enhanced connection monitoring
                     this.monitorConnectionQuality(bytesUploaded, bytesTotal);
                 },
@@ -1254,7 +1273,7 @@ define(['jquery', 'core/ajax', 'core/notification', 'core/str'], function($, Aja
             const errorMessage = error.message.toLowerCase();
 
             // Network/connection errors - highly transient
-            if (errorMessage.includes('network') || errorMessage.includes('connection') || 
+            if (errorMessage.includes('network') || errorMessage.includes('connection') ||
                 errorMessage.includes('timeout') || errorMessage.includes('fetch')) {
                 analysis.type = 'network_error';
                 analysis.isTransient = true;
@@ -1262,40 +1281,40 @@ define(['jquery', 'core/ajax', 'core/notification', 'core/str'], function($, Aja
                 analysis.suggestions = ['Check your internet connection', 'Try again in a moment'];
             }
             // Server errors - transient
-            else if (errorMessage.includes('server') || errorMessage.includes('5xx') || 
-                     errorMessage.includes('service unavailable')) {
+            else if (errorMessage.includes('server') || errorMessage.includes('5xx') ||
+                errorMessage.includes('service unavailable')) {
                 analysis.type = 'server_error';
                 analysis.isTransient = true;
                 analysis.canRetry = true;
                 analysis.suggestions = ['Server is temporarily unavailable', 'Try again in a few minutes'];
             }
             // Rate limiting - transient
-            else if (errorMessage.includes('rate limit') || errorMessage.includes('too many requests') || 
-                     errorMessage.includes('429')) {
+            else if (errorMessage.includes('rate limit') || errorMessage.includes('too many requests') ||
+                errorMessage.includes('429')) {
                 analysis.type = 'rate_limit';
                 analysis.isTransient = true;
                 analysis.canRetry = true;
                 analysis.suggestions = ['Too many requests', 'Wait a moment before trying again'];
             }
             // Quota/storage errors - potentially transient
-            else if (errorMessage.includes('quota') || errorMessage.includes('storage') || 
-                     errorMessage.includes('limit exceeded')) {
+            else if (errorMessage.includes('quota') || errorMessage.includes('storage') ||
+                errorMessage.includes('limit exceeded')) {
                 analysis.type = 'quota_error';
                 analysis.isTransient = true;
                 analysis.canRetry = true;
                 analysis.suggestions = ['Storage quota may be exceeded', 'Try again later or contact support'];
             }
             // Authentication errors - potentially transient (token expiry)
-            else if (errorMessage.includes('auth') || errorMessage.includes('unauthorized') || 
-                     errorMessage.includes('forbidden')) {
+            else if (errorMessage.includes('auth') || errorMessage.includes('unauthorized') ||
+                errorMessage.includes('forbidden')) {
                 analysis.type = 'auth_error';
                 analysis.isTransient = true;
                 analysis.canRetry = true;
                 analysis.suggestions = ['Authentication issue', 'Refresh the page and try again'];
             }
             // File/format errors - not transient
-            else if (errorMessage.includes('file') || errorMessage.includes('format') || 
-                     errorMessage.includes('size') || errorMessage.includes('type')) {
+            else if (errorMessage.includes('file') || errorMessage.includes('format') ||
+                errorMessage.includes('size') || errorMessage.includes('type')) {
                 analysis.type = 'file_error';
                 analysis.isTransient = false;
                 analysis.canRetry = false;
@@ -1468,7 +1487,7 @@ define(['jquery', 'core/ajax', 'core/notification', 'core/str'], function($, Aja
                     });
                     this.slowConnectionWarningShown = true;
                 }
-                
+
                 // Unstable connection (high speed variance)
                 const speedVariance = this.calculateSpeedVariance();
                 if (speedVariance > 0.5 && !this.unstableConnectionWarningShown) {
@@ -1509,7 +1528,7 @@ define(['jquery', 'core/ajax', 'core/notification', 'core/str'], function($, Aja
             const mean = this.speedHistory.reduce((sum, speed) => sum + speed, 0) / this.speedHistory.length;
             const variance = this.speedHistory.reduce((sum, speed) => sum + Math.pow(speed - mean, 2), 0) / this.speedHistory.length;
             const standardDeviation = Math.sqrt(variance);
-            
+
             // Return coefficient of variation (standard deviation / mean)
             return mean > 0 ? standardDeviation / mean : 0;
         }
@@ -1553,10 +1572,10 @@ define(['jquery', 'core/ajax', 'core/notification', 'core/str'], function($, Aja
             this.slowConnectionWarningShown = false;
             this.unstableConnectionWarningShown = false;
             this.speedHistory = [];
-            
+
             // Remove time remaining display
             this.progressContainer.find('.cloudflarestream-time-remaining').remove();
-            
+
             // Remove connection warning messages
             this.statusMessage.find('.cloudflarestream-connection-warning').remove();
         }
@@ -1643,7 +1662,7 @@ define(['jquery', 'core/ajax', 'core/notification', 'core/str'], function($, Aja
          * @param {number} maxFileSize Maximum file size in bytes
          * @param {string} containerSelector jQuery selector for the upload container
          */
-        init: function(assignmentId, submissionId, maxFileSize, containerSelector) {
+        init: function (assignmentId, submissionId, maxFileSize, containerSelector) {
             const uploader = new CloudflareUploader(assignmentId, submissionId, maxFileSize);
             uploader.init(containerSelector || '.cloudflarestream-upload-interface');
         }

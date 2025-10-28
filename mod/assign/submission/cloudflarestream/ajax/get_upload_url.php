@@ -89,7 +89,7 @@ try {
     $client = new cloudflare_client($apitoken, $accountid);
     
     // Request direct upload URL from Cloudflare.
-    $result = $client->get_direct_upload_url();
+    $result = $client->get_direct_upload_url(); // Use default settings
     
     // Get or create submission record.
     $submission = $assign->get_user_submission($USER->id, true);
