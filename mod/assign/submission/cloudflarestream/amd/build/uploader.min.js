@@ -134,6 +134,7 @@ define(['jquery', 'core/ajax', 'core/notification', 'core/str'], function($, Aja
 
         /**
          * Load the tus-js-client library dynamically.
+         * We need to temporarily disable AMD to prevent tus from registering as an AMD module.
          */
         loadTusLibrary() {
             // Check if tus is already loaded
@@ -142,13 +143,21 @@ define(['jquery', 'core/ajax', 'core/notification', 'core/str'], function($, Aja
                 return;
             }
 
+            // Temporarily disable AMD define to prevent tus from registering as AMD module
+            const originalDefine = window.define;
+            window.define = undefined;
+
             // Load tus from CDN
             const script = document.createElement('script');
             script.src = 'https://cdn.jsdelivr.net/npm/tus-js-client@3.1.1/dist/tus.min.js';
             script.onload = () => {
+                // Restore AMD define
+                window.define = originalDefine;
                 this.tus = window.tus;
             };
             script.onerror = () => {
+                // Restore AMD define even on error
+                window.define = originalDefine;
                 this.showError('Failed to load upload library. Please refresh the page.');
             };
             document.head.appendChild(script);
@@ -280,8 +289,29 @@ define(['jquery', 'core/ajax', 'core/notification', 'core/str'], function($, Aja
                 // Request upload URL from Moodle
                 const uploadData = await this.requestUploadUrl();
 
+                // DEBUG: Log the ENTIRE response
+                console.log('=== UPLOAD DATA RECEIVED ===');
+                console.log('Full uploadData object:', JSON.stringify(uploadData, null, 2));
+                console.log('uploadData.uid:', uploadData.uid);
+                console.log('uploadData.uploadURL:', uploadData.uploadURL);
+                console.log('uploadData.submissionid:', uploadData.submissionid);
+                console.log('===========================');
+
+                // Validate that we have the required data
+                if (!uploadData.uid || !uploadData.uploadURL) {
+                    console.error('VALIDATION FAILED - uploadData:', uploadData);
+                    throw new Error('Invalid response from server: missing upload URL or video ID');
+                }
+
                 // Upload file to Cloudflare using tus with retry logic
                 await this.uploadFileWithRetry(file, uploadData.uploadURL, uploadData.uid);
+
+                // Debug: Log the uid before confirming
+                console.log('=== BEFORE CONFIRM UPLOAD ===');
+                console.log('Confirming upload with uid:', uploadData.uid, 'submissionid:', uploadData.submissionid);
+                console.log('typeof uid:', typeof uploadData.uid);
+                console.log('uid length:', uploadData.uid ? uploadData.uid.length : 'null/undefined');
+                console.log('============================');
 
                 // Confirm upload completion with Moodle
                 await this.confirmUpload(uploadData.uid, uploadData.submissionid);
@@ -301,43 +331,41 @@ define(['jquery', 'core/ajax', 'core/notification', 'core/str'], function($, Aja
          */
         async requestUploadUrl() {
             return new Promise((resolve, reject) => {
-                Ajax.call([{
-                    methodname: 'core_fetch_url',
-                    args: {
-                        url: M.cfg.wwwroot + '/mod/assign/submission/cloudflarestream/ajax/get_upload_url.php',
-                        params: {
-                            assignmentid: this.assignmentId,
-                            submissionid: this.submissionId,
-                            sesskey: M.cfg.sesskey
+                $.ajax({
+                    url: M.cfg.wwwroot + '/mod/assign/submission/cloudflarestream/ajax/get_upload_url.php',
+                    method: 'POST',
+                    data: {
+                        assignmentid: this.assignmentId,
+                        submissionid: this.submissionId,
+                        sesskey: M.cfg.sesskey
+                    },
+                    dataType: 'json',
+                    success: (data) => {
+                        if (data.success) {
+                            resolve(data);
+                        } else {
+                            // Create enhanced error object with server-provided details
+                            const error = new Error(data.user_message || data.error || 'Failed to get upload URL');
+                            error.errorType = data.error_type || 'unknown';
+                            error.suggestions = data.suggestions || [];
+                            error.canRetry = data.can_retry !== false;
+                            error.retryAfter = data.retry_after;
+                            error.serverResponse = data;
+                            reject(error);
                         }
+                    },
+                    error: (xhr, status, error) => {
+                        // Handle network or parsing errors
+                        const enhancedError = new Error('Network error occurred while requesting upload URL');
+                        enhancedError.errorType = 'network_error';
+                        enhancedError.suggestions = [
+                            'Check your internet connection',
+                            'Refresh the page and try again'
+                        ];
+                        enhancedError.canRetry = true;
+                        enhancedError.originalError = error;
+                        reject(enhancedError);
                     }
-                }])[0].then((response) => {
-                    // Parse response if it's a string
-                    const data = typeof response === 'string' ? JSON.parse(response) : response;
-                    
-                    if (data.success) {
-                        resolve(data);
-                    } else {
-                        // Create enhanced error object with server-provided details
-                        const error = new Error(data.user_message || data.error || 'Failed to get upload URL');
-                        error.errorType = data.error_type || 'unknown';
-                        error.suggestions = data.suggestions || [];
-                        error.canRetry = data.can_retry !== false;
-                        error.retryAfter = data.retry_after;
-                        error.serverResponse = data;
-                        reject(error);
-                    }
-                }).catch((error) => {
-                    // Handle network or parsing errors
-                    const enhancedError = new Error('Network error occurred while requesting upload URL');
-                    enhancedError.errorType = 'network_error';
-                    enhancedError.suggestions = [
-                        'Check your internet connection',
-                        'Refresh the page and try again'
-                    ];
-                    enhancedError.canRetry = true;
-                    enhancedError.originalError = error;
-                    reject(enhancedError);
                 });
             });
         }
@@ -381,12 +409,11 @@ define(['jquery', 'core/ajax', 'core/notification', 'core/str'], function($, Aja
          */
         performTusUpload(file, uploadURL, uid, resolve, reject) {
             const upload = new this.tus.Upload(file, {
+                // Cloudflare Stream provides a pre-created upload URL
                 endpoint: uploadURL,
+                // Cloudflare's TUS implementation doesn't support metadata in Upload-Metadata header
+                // Remove metadata to avoid "Decoding Error"
                 retryDelays: [0, 3000, 5000, 10000, 20000],
-                metadata: {
-                    filename: file.name,
-                    filetype: file.type
-                },
                 onError: (error) => {
                     this.currentUpload = null;
                     reject(error);
@@ -414,6 +441,19 @@ define(['jquery', 'core/ajax', 'core/notification', 'core/str'], function($, Aja
          */
         async confirmUpload(videoUid, submissionId) {
             return new Promise((resolve, reject) => {
+                // DEBUG: Log what we're sending
+                console.log('=== CONFIRM UPLOAD AJAX CALL ===');
+                console.log('videoUid parameter:', videoUid);
+                console.log('submissionId parameter:', submissionId);
+                console.log('typeof videoUid:', typeof videoUid);
+                console.log('videoUid length:', videoUid ? videoUid.length : 'null/undefined');
+                console.log('Data being sent:', {
+                    videouid: videoUid,
+                    submissionid: submissionId,
+                    sesskey: M.cfg.sesskey
+                });
+                console.log('================================');
+                
                 $.ajax({
                     url: M.cfg.wwwroot + '/mod/assign/submission/cloudflarestream/ajax/confirm_upload.php',
                     method: 'POST',
@@ -1070,15 +1110,13 @@ define(['jquery', 'core/ajax', 'core/notification', 'core/str'], function($, Aja
             const settings = this.optimizedSettings || {};
             
             const upload = new this.tus.Upload(file, {
+                // Cloudflare Stream provides a pre-created upload URL
                 endpoint: uploadURL,
-                retryDelays: settings.retryDelays || [0, 1000, 3000, 5000, 10000, 20000], // Built-in tus retry delays
-                chunkSize: settings.chunkSize || 5242880, // 5MB chunks by default, 1MB for slow connections
-                parallelUploads: settings.parallelUploads || 1, // Disable parallel uploads to reduce server load
-                uploadTimeout: settings.timeout || 30000, // 30 second timeout by default
-                metadata: {
-                    filename: file.name,
-                    filetype: file.type
-                },
+                // Cloudflare's TUS implementation doesn't support metadata in Upload-Metadata header
+                // Remove metadata to avoid "Decoding Error"
+                retryDelays: settings.retryDelays || [0, 1000, 3000, 5000, 10000, 20000],
+                chunkSize: settings.chunkSize || 5242880, // 5MB chunks
+                uploadTimeout: settings.timeout || 30000,
                 onError: (error) => {
                     this.currentUpload = null;
                     

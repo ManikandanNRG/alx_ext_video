@@ -34,10 +34,25 @@ use assignsubmission_cloudflarestream\validator;
 use assignsubmission_cloudflarestream\validation_exception;
 
 // Get and validate parameters.
+// DEBUG: Log ALL incoming data
+error_log('=== CONFIRM_UPLOAD.PHP DEBUG ===');
+error_log('$_POST data: ' . print_r($_POST, true));
+error_log('$_GET data: ' . print_r($_GET, true));
+error_log('$_REQUEST data: ' . print_r($_REQUEST, true));
+
+// Log all received parameters for debugging
+$received_videouid = optional_param('videouid', '', PARAM_TEXT);
+$received_submissionid = optional_param('submissionid', 0, PARAM_INT);
+error_log('confirm_upload.php received: videouid=' . $received_videouid . ', submissionid=' . $received_submissionid);
+error_log('videouid is empty: ' . (empty($received_videouid) ? 'YES' : 'NO'));
+error_log('================================');
+
 try {
     $videouid = validator::validate_video_uid(required_param('videouid', PARAM_TEXT));
     $submissionid = validator::validate_submission_id(required_param('submissionid', PARAM_INT));
+    error_log('confirm_upload.php validated: videouid=' . $videouid . ', submissionid=' . $submissionid);
 } catch (validation_exception $e) {
+    error_log('confirm_upload.php validation error: ' . $e->getMessage());
     echo json_encode([
         'success' => false,
         'error' => $e->getMessage()

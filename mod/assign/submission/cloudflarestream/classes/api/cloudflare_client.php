@@ -134,6 +134,14 @@ class cloudflare_client {
         // Validate API response structure.
         validator::validate_api_response($response, ['uploadURL', 'uid']);
 
+        // DEBUG: Log the response structure
+        error_log('=== CLOUDFLARE API RESPONSE DEBUG ===');
+        error_log('Response object: ' . print_r($response, true));
+        error_log('Response->result: ' . print_r($response->result ?? 'NOT SET', true));
+        error_log('Response->result->uid: ' . ($response->result->uid ?? 'NOT SET'));
+        error_log('Response->result->uploadURL: ' . ($response->result->uploadURL ?? 'NOT SET'));
+        error_log('====================================');
+
         // Validate the returned video UID.
         validator::validate_video_uid($response->result->uid);
 

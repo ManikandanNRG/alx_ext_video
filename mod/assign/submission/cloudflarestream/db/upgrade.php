@@ -37,8 +37,8 @@ function xmldb_assignsubmission_cloudflarestream_upgrade($oldversion) {
 
     // Add logging table for monitoring and analytics.
     if ($oldversion < 2025102301) {
-        // Define table assignsubmission_cfstream_log to be created.
-        $table = new xmldb_table('assignsubmission_cfstream_log');
+        // Define table assignsubmission_cfs_log to be created (matches install.xml - 24 chars).
+        $table = new xmldb_table('assignsubmission_cfs_log');
 
         // Adding fields to table.
         $table->add_field('id', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, XMLDB_SEQUENCE, null);

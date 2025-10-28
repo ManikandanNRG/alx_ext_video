@@ -70,8 +70,11 @@ try {
     $assign = new assign($context, $cm, $course);
     
     // Verify user has permission to submit.
-    if (!$assign->can_edit_submission($submissionid, $USER->id)) {
-        throw new moodle_exception('nopermission', 'assignsubmission_cloudflarestream');
+    require_capability('mod/assign:submit', $context);
+    
+    // Check if submissions are allowed.
+    if (!$assign->submissions_open($USER->id)) {
+        throw new moodle_exception('submissionsclosed', 'assign');
     }
     
     // Get plugin configuration.
@@ -114,6 +117,9 @@ try {
         // Insert new record.
         $DB->insert_record('assignsubmission_cfstream', $record);
     }
+    
+    // Log the response for debugging
+    error_log('Cloudflare upload URL response: uploadURL=' . $result->uploadURL . ', uid=' . $result->uid . ', submissionid=' . $submission->id);
     
     // Return success response with upload URL and UID.
     echo json_encode([
@@ -192,6 +198,36 @@ try {
     );
     
     // Return comprehensive error response.
+    echo json_encode([
+        'success' => false,
+        'error' => $userMessage,
+        'error_type' => $errorType,
+        'user_message' => $userMessage,
+        'suggestions' => $suggestions,
+        'debug' => $e->getMessage(),
+        'can_retry' => true
+    ]);
+    
+} catch (assignsubmission_cloudflarestream\validation_exception $e) {
+    // Handle validation errors from the validator class.
+    $errorType = 'validation_error';
+    $userMessage = 'Invalid request data: ' . $e->getMessage();
+    $suggestions = [
+        get_string('retry_refresh_page', 'assignsubmission_cloudflarestream'),
+        get_string('retry_contact_support', 'assignsubmission_cloudflarestream')
+    ];
+    
+    // Log the validation error.
+    logger::log_upload_failure(
+        $USER->id,
+        $assignmentid,
+        isset($submission) ? $submission->id : null,
+        'validation_error',
+        $e->getMessage(),
+        $e->debuginfo ?? null
+    );
+    
+    // Return validation error response.
     echo json_encode([
         'success' => false,
         'error' => $userMessage,

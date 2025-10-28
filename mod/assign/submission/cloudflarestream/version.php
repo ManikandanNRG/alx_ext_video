@@ -9,9 +9,9 @@
 defined('MOODLE_INTERNAL') || die();
 
 $plugin = new stdClass();
-$plugin->version   = 2025102300;        // The current plugin version (Date: YYYYMMDDXX).
-$plugin->requires  = 2020061500;        // Requires Moodle 3.9 or higher.
+$plugin->version   = 2025102701;        // The current plugin version (Date: YYYYMMDDXX) - BUMPED TO FORCE JS RELOAD.
+$plugin->requires  = 2022112800;        // Requires Moodle 4.1 or higher (compatible with 4.2).
 $plugin->component = 'assignsubmission_cloudflarestream';
 $plugin->maturity  = MATURITY_STABLE;
-$plugin->release   = '1.0.0';
+$plugin->release   = '1.0.1';           // Bug fix release
 $plugin->dependencies = array();

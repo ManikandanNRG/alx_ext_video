@@ -144,24 +144,41 @@ class validator {
      * @throws validation_exception If video UID is invalid
      */
     public static function validate_video_uid($videouid) {
+        // DEBUG: Log the validation process
+        error_log('=== VIDEO UID VALIDATION DEBUG ===');
+        error_log('Original UID: ' . var_export($videouid, true));
+        error_log('Is empty check: ' . (empty($videouid) ? 'TRUE' : 'FALSE'));
+        
         if (empty($videouid)) {
+            error_log('VALIDATION FAILED: UID is empty');
             throw new validation_exception('missing_video_uid', 'Video UID is required');
         }
         
         // Sanitize the video UID
-        $videouid = clean_param($videouid, PARAM_ALPHANUMEXT);
+        $cleaned_uid = clean_param($videouid, PARAM_ALPHANUMEXT);
+        error_log('After clean_param: ' . var_export($cleaned_uid, true));
+        error_log('Length after cleaning: ' . strlen($cleaned_uid));
         
-        if (strlen($videouid) > self::MAX_VIDEO_UID_LENGTH) {
+        if (strlen($cleaned_uid) > self::MAX_VIDEO_UID_LENGTH) {
+            error_log('VALIDATION FAILED: UID too long');
             throw new validation_exception('video_uid_too_long', 
                 'Video UID exceeds maximum length of ' . self::MAX_VIDEO_UID_LENGTH . ' characters');
         }
         
-        if (!preg_match(self::VIDEO_UID_PATTERN, $videouid)) {
+        $pattern_match = preg_match(self::VIDEO_UID_PATTERN, $cleaned_uid);
+        error_log('Pattern match result: ' . ($pattern_match ? 'TRUE' : 'FALSE'));
+        error_log('Pattern: ' . self::VIDEO_UID_PATTERN);
+        
+        if (!$pattern_match) {
+            error_log('VALIDATION FAILED: Pattern mismatch');
             throw new validation_exception('invalid_video_uid_format', 
                 'Video UID contains invalid characters');
         }
         
-        return $videouid;
+        error_log('VALIDATION SUCCESS: UID is valid');
+        error_log('=================================');
+        
+        return $cleaned_uid;
     }
     
     /**
@@ -369,8 +386,11 @@ class validator {
             $sanitized->submission = self::validate_submission_id($record->submission);
         }
         
-        if (isset($record->video_uid)) {
+        if (isset($record->video_uid) && $record->video_uid !== '') {
             $sanitized->video_uid = self::validate_video_uid($record->video_uid);
+        } else if (isset($record->video_uid)) {
+            // Allow empty video_uid for pending uploads
+            $sanitized->video_uid = '';
         }
         
         if (isset($record->upload_status)) {

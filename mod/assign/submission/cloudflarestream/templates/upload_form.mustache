@@ -133,6 +133,11 @@
 
 {{#js}}
 require(['assignsubmission_cloudflarestream/uploader'], function(Uploader) {
+    console.log('=== CLOUDFLARE UPLOADER LOADED ===');
+    console.log('Timestamp:', new Date().toISOString());
+    console.log('This proves the NEW JavaScript is loading!');
+    console.log('==================================');
+    
     Uploader.init(
         {{assignmentid}}, 
         {{#submissionid}}{{submissionid}}{{/submissionid}}{{^submissionid}}0{{/submissionid}}, 

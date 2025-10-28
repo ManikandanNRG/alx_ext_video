@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test JavaScript Loading</title>
+</head>
+<body>
+    <h1>JavaScript Loading Test</h1>
+    <p>Open browser console (F12) and check if you see the debug message.</p>
+    
+    <script>
+        console.log('=== JAVASCRIPT IS LOADING ===');
+        console.log('This message proves JavaScript is working');
+        console.log('Timestamp:', new Date().toISOString());
+        console.log('=============================');
+        
+        // Test if the debug logs from uploader.js would show
+        if (typeof console !== 'undefined') {
+            console.log('Console is available - debug logs should work');
+        }
+    </script>
+    
+    <p>If you see the debug messages in console, JavaScript is working.</p>
+    <p>If you DON'T see them, there's a browser or console issue.</p>
+</body>
+</html>
