@@ -195,6 +195,30 @@ class cloudflare_client {
     }
 
     /**
+     * Set video to require signed URLs (make it private).
+     *
+     * @param string $videouid The Cloudflare video UID
+     * @return bool True if update was successful
+     * @throws cloudflare_api_exception If the API request fails
+     */
+    public function set_video_private($videouid) {
+        // Validate input parameters.
+        $videouid = validator::validate_video_uid($videouid);
+        
+        $endpoint = "/accounts/{$this->accountid}/stream/{$videouid}";
+        $data = [
+            'requireSignedURLs' => true
+        ];
+        
+        $response = $this->make_request('POST', $endpoint, $data);
+        
+        // Validate API response.
+        validator::validate_api_response($response);
+        
+        return true;
+    }
+
+    /**
      * Generate a signed token for video playback.
      *
      * @param string $videouid The Cloudflare video UID
