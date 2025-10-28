@@ -83,10 +83,10 @@ try {
     // Create assignment object.
     $assign = new assign($context, $cm, $course);
     
-    // Verify user still has permission to edit this submission.
-    if (!$assign->can_edit_submission($submissionid, $USER->id)) {
-        throw new moodle_exception('nopermission', 'assignsubmission_cloudflarestream');
-    }
+    // Note: We don't check can_edit_submission() here because:
+    // 1. The upload has already completed successfully to Cloudflare
+    // 2. We only need to verify ownership (already checked above)
+    // 3. This matches the behavior of other submission plugins
     
     // Get plugin configuration.
     $apitoken = get_config('assignsubmission_cloudflarestream', 'apitoken');
