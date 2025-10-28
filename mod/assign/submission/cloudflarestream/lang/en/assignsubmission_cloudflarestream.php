@@ -260,33 +260,6 @@ $string['connection_unstable'] = 'Unstable connection detected. Upload will auto
 $string['connection_restored'] = 'Connection restored. Resuming upload...';
 
 // Browser compatibility messages.
-$string['browser_unsupported'] = 'Your browser may not support all features. For best results, please use Chrome, Firefox, Safari, or Edge.';
-$string['javascript_required'] = 'JavaScript is required for video upload. Please enable JavaScript and refresh the page.';
 
-// File validation messages.
-$string['file_validation_failed'] = 'File validation failed: {$a}';
-$string['file_empty'] = 'The selected file is empty or corrupted.';
-$string['file_name_invalid'] = 'Invalid file name. Please use only letters, numbers, and common punctuation.';
-$string['file_extension_missing'] = 'File must have a valid video extension (e.g., .mp4, .mov, .avi).';
-
-// API and service status messages.
-$string['service_maintenance'] = 'The video service is currently undergoing maintenance. Please try again later.';
-$string['service_overloaded'] = 'The video service is experiencing high demand. Please try again in a few minutes.';
-$string['api_version_mismatch'] = 'Service compatibility issue detected. Please contact your administrator.';
-
-// Recovery and troubleshooting.
-$string['troubleshooting_title'] = 'Troubleshooting Steps';
-$string['troubleshooting_step1'] = '1. Ensure your video file is in a supported format (MP4, MOV, AVI, MKV, WebM)';
-$string['troubleshooting_step2'] = '2. Check that your file size is under {$a}';
-$string['troubleshooting_step3'] = '3. Verify you have a stable internet connection';
-$string['troubleshooting_step4'] = '4. Try refreshing the page and uploading again';
-$string['troubleshooting_step5'] = '5. If problems persist, contact your instructor or technical support';
-
-// Admin error messages.
-$string['admin_config_incomplete'] = 'Cloudflare Stream configuration is incomplete. Please check API token and account ID settings.';
-$string['admin_quota_warning'] = 'Cloudflare quota is approaching limits. Consider upgrading your plan or implementing stricter file size limits.';
-$string['admin_api_deprecated'] = 'The Cloudflare API version in use may be deprecated. Please check for plugin updates.';
-/
-/ Task strings.
+// Task strings.
 $string['task_cleanup_videos'] = 'Clean up old Cloudflare Stream videos';
-$string['task_update_video_status'] = 'Update video processing status from Cloudflare';
