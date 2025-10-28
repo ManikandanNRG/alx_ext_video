@@ -231,8 +231,10 @@ define(['jquery'], function ($) {
                 // Upload file directly to Cloudflare
                 await this.uploadToCloudflare(file, uploadData);
 
-                // Confirm upload completion with Moodle
-                await this.confirmUpload(uploadData.uid, uploadData.submissionid);
+                // Confirm upload with retry - checks Cloudflare status multiple times
+                // This handles both fast (small files) and slow (large files) processing
+                this.updateProgress(100, 'Finalizing upload...');
+                await this.confirmUploadWithRetry(uploadData.uid, uploadData.submissionid);
 
                 // Show success message
                 this.showSuccess();
@@ -349,6 +351,59 @@ define(['jquery'], function ($) {
                 xhr.timeout = 0; // No timeout - let it take as long as needed
                 xhr.send(formData);
             });
+        }
+
+        /**
+         * Confirm upload with retry - polls Cloudflare status until ready or max attempts.
+         * 
+         * For small files: Usually ready on first attempt (3 seconds)
+         * For large files: Retries up to 5 times (total ~30 seconds)
+         * If still processing: Saves as "uploading" and user can refresh later
+         *
+         * @param {string} videoId The Cloudflare video ID
+         * @param {number} submissionId The submission ID
+         * @return {Promise<Object>} Confirmation response
+         */
+        async confirmUploadWithRetry(videoId, submissionId) {
+            const maxAttempts = 5;
+            const delays = [3000, 5000, 7000, 10000, 15000]; // Total: ~40 seconds
+            
+            for (let attempt = 0; attempt < maxAttempts; attempt++) {
+                // Wait before checking (except first attempt which waits 3 seconds)
+                if (attempt > 0) {
+                    this.updateProgress(100, `Processing video... (${attempt}/${maxAttempts})`);
+                }
+                await this.sleep(delays[attempt]);
+                
+                try {
+                    const result = await this.confirmUpload(videoId, submissionId);
+                    
+                    // Check if video is ready
+                    if (result.status === 'ready') {
+                        console.log('✅ Video is ready after ' + (attempt + 1) + ' attempts');
+                        return result;
+                    }
+                    
+                    // If still uploading and not last attempt, retry
+                    if (result.status === 'uploading' && attempt < maxAttempts - 1) {
+                        console.log('Video still processing, will retry... (attempt ' + (attempt + 1) + ')');
+                        continue;
+                    }
+                    
+                    // Last attempt or other status - return as is
+                    console.log('Video status: ' + result.status + ' after ' + (attempt + 1) + ' attempts');
+                    return result;
+                    
+                } catch (error) {
+                    // On error, if not last attempt, retry
+                    if (attempt < maxAttempts - 1) {
+                        console.log('Error confirming upload, will retry...', error);
+                        continue;
+                    }
+                    // Last attempt - throw error
+                    throw error;
+                }
+            }
         }
 
         /**
@@ -495,6 +550,16 @@ define(['jquery'], function ($) {
 
             this.statusMessage.empty().removeClass('alert-danger alert-success').hide();
             this.startUpload(this.currentFile);
+        }
+
+        /**
+         * Sleep for specified milliseconds.
+         *
+         * @param {number} ms Milliseconds to sleep
+         * @return {Promise<void>}
+         */
+        sleep(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
         }
 
         /**

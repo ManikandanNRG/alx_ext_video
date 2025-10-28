@@ -286,3 +286,7 @@ $string['troubleshooting_step5'] = '5. If problems persist, contact your instruc
 $string['admin_config_incomplete'] = 'Cloudflare Stream configuration is incomplete. Please check API token and account ID settings.';
 $string['admin_quota_warning'] = 'Cloudflare quota is approaching limits. Consider upgrading your plan or implementing stricter file size limits.';
 $string['admin_api_deprecated'] = 'The Cloudflare API version in use may be deprecated. Please check for plugin updates.';
+/
+/ Task strings.
+$string['task_cleanup_videos'] = 'Clean up old Cloudflare Stream videos';
+$string['task_update_video_status'] = 'Update video processing status from Cloudflare';
