@@ -149,79 +149,33 @@ define(['jquery', 'core/ajax', 'core/str'], function($, Ajax, Str) {
         }
 
         /**
-         * Embed the Cloudflare Stream player with the signed token.
+         * Embed Cloudflare Stream player using signed token.
+         * Per Cloudflare docs: token REPLACES video UID in the URL.
          */
         embedPlayer() {
-            // Clear loading indicator
             this.container.empty();
 
-            // Load Cloudflare Stream SDK if not already loaded
-            if (typeof Stream === 'undefined') {
-                this.loadStreamSDK().then(() => {
-                    this.initializeStreamPlayer();
-                }).catch((error) => {
-                    this.handleError(new Error('Failed to load Cloudflare Stream SDK: ' + error.message));
+            // Create <stream> element with token as src (not video UID)
+            const streamElement = $('<stream>')
+                .attr('src', this.token)  // Token replaces video UID
+                .attr('controls', true)
+                .attr('preload', 'metadata')
+                .css({
+                    width: '100%',
+                    height: '100%',
+                    minHeight: '400px'
                 });
-            } else {
-                this.initializeStreamPlayer();
-            }
-        }
 
-        /**
-         * Load the Cloudflare Stream SDK.
-         *
-         * @return {Promise<void>}
-         */
-        loadStreamSDK() {
-            return new Promise((resolve, reject) => {
-                if (typeof Stream !== 'undefined') {
-                    resolve();
-                    return;
-                }
+            this.container.append(streamElement);
 
+            // Load Stream SDK if needed
+            if (!document.querySelector('script[src*="cloudflarestream.com/embed/sdk"]')) {
                 const script = document.createElement('script');
                 script.src = 'https://embed.cloudflarestream.com/embed/sdk.latest.js';
-                script.async = true;
-                script.onload = () => resolve();
-                script.onerror = () => reject(new Error('Failed to load SDK'));
                 document.head.appendChild(script);
-            });
-        }
-
-        /**
-         * Initialize the Stream player with the token.
-         */
-        initializeStreamPlayer() {
-            try {
-                // eslint-disable-next-line no-undef
-                const player = Stream(this.container[0], {
-                    src: this.videoUid,
-                    controls: true,
-                    preload: 'auto',
-                    responsive: true
-                });
-
-                // Set the token
-                player.token = this.token;
-
-                // Store player reference
-                this.playerIframe = player;
-
-                // Handle player events
-                player.addEventListener('loadeddata', () => {
-                    // eslint-disable-next-line no-console
-                    console.log('Video loaded successfully');
-                });
-
-                player.addEventListener('error', (e) => {
-                    // eslint-disable-next-line no-console
-                    console.error('Player error:', e);
-                    this.handleError(new Error('Video playback error'));
-                });
-
-            } catch (error) {
-                this.handleError(new Error('Failed to initialize player: ' + error.message));
             }
+
+            this.playerIframe = streamElement[0];
         }
 
         /**
