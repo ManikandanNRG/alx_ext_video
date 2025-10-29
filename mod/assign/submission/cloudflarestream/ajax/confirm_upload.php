@@ -157,14 +157,8 @@ try {
     // Update the database.
     $DB->update_record('assignsubmission_cfstream', $record);
     
-    // Set video to private (require signed URLs) for security
-    try {
-        $client->set_video_private($videouid);
-        error_log("Video $videouid set to private (requireSignedURLs=true)");
-    } catch (Exception $e) {
-        // Log but don't fail - video is uploaded, just not private yet
-        error_log("Warning: Could not set video $videouid to private: " . $e->getMessage());
-    }
+    // Videos are uploaded as PUBLIC with domain restrictions for security
+    // No need to set requireSignedURLs=true since we don't have signing keys
     
     // Log successful upload.
     if ($uploadstatus === 'ready') {
