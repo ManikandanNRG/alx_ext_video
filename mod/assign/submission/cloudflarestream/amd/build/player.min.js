@@ -13,7 +13,7 @@
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-define(['jquery', 'core/ajax', 'core/str'], function($, Ajax, Str) {
+define(['jquery', 'core/ajax', 'core/str'], function ($, Ajax, Str) {
 
     /**
      * Token expiry buffer in seconds (refresh 5 minutes before expiry).
@@ -48,7 +48,7 @@ define(['jquery', 'core/ajax', 'core/str'], function($, Ajax, Str) {
          */
         async init() {
             this.container = $('#' + this.containerId);
-            
+
             if (this.container.length === 0) {
                 // eslint-disable-next-line no-console
                 console.error('Player container not found:', this.containerId);
@@ -112,7 +112,7 @@ define(['jquery', 'core/ajax', 'core/str'], function($, Ajax, Str) {
                         'Refresh the page and try again'
                     ];
                     let canRetry = true;
-                    
+
                     // Try to parse error response
                     if (jqXHR.responseJSON && jqXHR.responseJSON.user_message) {
                         errorMessage = jqXHR.responseJSON.user_message;
@@ -137,7 +137,7 @@ define(['jquery', 'core/ajax', 'core/str'], function($, Ajax, Str) {
                             'Contact support if the problem persists'
                         ];
                     }
-                    
+
                     const error = new Error(errorMessage);
                     error.errorType = errorType;
                     error.suggestions = suggestions;
@@ -149,33 +149,30 @@ define(['jquery', 'core/ajax', 'core/str'], function($, Ajax, Str) {
         }
 
         /**
-         * Embed Cloudflare Stream player using signed token.
-         * Per Cloudflare docs: token REPLACES video UID in the URL.
+         * Embed Cloudflare Stream player using simple IFRAME (for PUBLIC videos).
+         * No token needed - videos are public with domain restrictions.
          */
         embedPlayer() {
             this.container.empty();
 
-            // Create <stream> element with token as src (not video UID)
-            const streamElement = $('<stream>')
-                .attr('src', this.token)  // Token replaces video UID
-                .attr('controls', true)
-                .attr('preload', 'metadata')
-                .css({
-                    width: '100%',
-                    height: '100%',
-                    minHeight: '400px'
-                });
+            // Create simple IFRAME with video UID only (no token needed for public videos)
+            const iframeUrl = `https://iframe.videodelivery.net/${this.videoUid}`;
 
-            this.container.append(streamElement);
+            const iframe = $('<iframe>')
+                .attr('src', iframeUrl)
+                .attr('style', 'border: none; width: 100%; aspect-ratio: 16/9; min-height: 400px;')
+                .attr('allow', 'accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture')
+                .attr('allowfullscreen', true)
+                .attr('loading', 'lazy');
 
-            // Load Stream SDK if needed
-            if (!document.querySelector('script[src*="cloudflarestream.com/embed/sdk"]')) {
-                const script = document.createElement('script');
-                script.src = 'https://embed.cloudflarestream.com/embed/sdk.latest.js';
-                document.head.appendChild(script);
-            }
+            this.container.append(iframe);
+            this.playerIframe = iframe[0];
 
-            this.playerIframe = streamElement[0];
+            // Log for debugging
+            // eslint-disable-next-line no-console
+            console.log('Cloudflare player embedded (public video)');
+            // eslint-disable-next-line no-console
+            console.log('Video UID:', this.videoUid);
         }
 
         /**
@@ -202,6 +199,7 @@ define(['jquery', 'core/ajax', 'core/str'], function($, Ajax, Str) {
 
         /**
          * Refresh the playback token and reload the player with retry logic.
+         * For IFRAME method, we need to update the iframe src with new token.
          */
         async refreshToken() {
             const maxRetries = 3;
@@ -213,8 +211,14 @@ define(['jquery', 'core/ajax', 'core/str'], function($, Ajax, Str) {
                     // Get new token
                     await this.getSignedToken();
 
-                    // Reload player with new token
-                    this.embedPlayer();
+                    // Update iframe src with new token (seamless refresh)
+                    if (this.playerIframe) {
+                        const newUrl = `https://iframe.videodelivery.net/${this.videoUid}?token=${this.token}`;
+                        $(this.playerIframe).attr('src', newUrl);
+
+                        // eslint-disable-next-line no-console
+                        console.log('Token refreshed successfully');
+                    }
 
                     // Schedule next refresh
                     this.scheduleTokenRefresh();
@@ -222,21 +226,21 @@ define(['jquery', 'core/ajax', 'core/str'], function($, Ajax, Str) {
                 } catch (error) {
                     // eslint-disable-next-line no-console
                     console.error(`Token refresh attempt ${attempt} failed:`, error);
-                    
+
                     // Check if we should retry
                     const shouldRetry = this.shouldRetryTokenRefresh(error, attempt, maxRetries);
-                    
+
                     if (shouldRetry.should_retry) {
                         // eslint-disable-next-line no-console
                         console.log(`Retrying token refresh in ${shouldRetry.delay_ms}ms...`);
-                        
+
                         setTimeout(() => {
                             attemptRefresh();
                         }, shouldRetry.delay_ms);
                     } else {
                         // Final failure - show error to user
-                        const errorMessage = error.canRetry === false 
-                            ? error.message 
+                        const errorMessage = error.canRetry === false
+                            ? error.message
                             : 'Video session expired. Please refresh the page.';
                         this.handleError(new Error(errorMessage));
                     }
@@ -286,7 +290,7 @@ define(['jquery', 'core/ajax', 'core/str'], function($, Ajax, Str) {
          */
         showLoading() {
             this.container.empty();
-            
+
             const loadingDiv = $('<div>')
                 .addClass('cloudflarestream-loading text-center p-5')
                 .append(
@@ -343,13 +347,13 @@ define(['jquery', 'core/ajax', 'core/str'], function($, Ajax, Str) {
             let suggestionsDiv = null;
             if (suggestions && suggestions.length > 0) {
                 suggestionsDiv = $('<div>').addClass('mt-3');
-                
+
                 const suggestionsTitle = $('<p>')
                     .addClass('mb-2 font-weight-bold')
                     .text('You can try the following:');
-                
+
                 const suggestionsList = $('<ul>').addClass('mb-2');
-                
+
                 suggestions.forEach(suggestion => {
                     suggestionsList.append($('<li>').text(suggestion));
                 });
@@ -467,7 +471,7 @@ define(['jquery', 'core/ajax', 'core/str'], function($, Ajax, Str) {
             helpModal.modal('show');
 
             // Remove from DOM when hidden
-            helpModal.on('hidden.bs.modal', function() {
+            helpModal.on('hidden.bs.modal', function () {
                 helpModal.remove();
             });
         }
@@ -500,7 +504,7 @@ define(['jquery', 'core/ajax', 'core/str'], function($, Ajax, Str) {
          * @param {string} containerId The container element ID
          * @return {CloudflarePlayer} The player instance
          */
-        init: function(videoUid, submissionId, containerId) {
+        init: function (videoUid, submissionId, containerId) {
             const player = new CloudflarePlayer(videoUid, submissionId, containerId);
             player.init();
             return player;

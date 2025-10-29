@@ -127,7 +127,7 @@ class cloudflare_client {
         $endpoint = "/accounts/{$this->accountid}/stream/direct_upload";
         $data = [
             'maxDurationSeconds' => $maxdurationseconds,
-            'requireSignedURLs' => false  // Make videos public for easier testing - can be changed later
+            'requireSignedURLs' => false  // Upload as PUBLIC - use domain restrictions for security
         ];
 
         $response = $this->make_request('POST', $endpoint, $data);
