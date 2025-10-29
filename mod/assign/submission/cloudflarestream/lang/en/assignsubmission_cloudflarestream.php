@@ -263,3 +263,7 @@ $string['connection_restored'] = 'Connection restored. Resuming upload...';
 
 // Task strings.
 $string['task_cleanup_videos'] = 'Clean up old Cloudflare Stream videos';
+
+// Video viewing strings.
+$string['watchvideo'] = 'Watch video';
+$string['videonotsupported'] = 'Your browser does not support video playback.';

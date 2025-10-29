@@ -608,3 +608,236 @@
         padding: 0.5rem 0.25rem;
     }
 }
+
+/* ========================================
+   GRADING INTERFACE LAYOUT
+   ======================================== */
+
+/* Two-column layout container */
+.cloudflarestream-two-column-layout {
+    display: grid;
+    grid-template-columns: 65% 35%;
+    /* Video 65%, Grading 35% */
+    gap: 20px;
+    height: calc(100vh - 150px);
+    /* Full height minus Moodle header */
+    min-height: 600px;
+    max-width: 100%;
+    margin: 0;
+    padding: 0;
+}
+
+/* Left column - Video player */
+.cloudflarestream-left-column {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background: #000;
+    border-radius: 4px;
+    padding: 0;
+    margin: 0;
+}
+
+/* Right column - Grading controls */
+.cloudflarestream-right-column {
+    overflow-y: auto;
+    overflow-x: hidden;
+    /* Prevent horizontal overflow */
+    background: #ffffff;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    padding: 20px;
+    min-width: 0;
+    /* Allow shrinking */
+    word-wrap: break-word;
+}
+
+/* Grading view container - fallback for single column */
+.cloudflarestream-grading-view {
+    width: 100%;
+    margin: 0;
+    padding: 0;
+}
+
+/* Optimized player size for grading interface */
+.cloudflarestream-grading-view .cloudflarestream-player-container {
+    width: 100%;
+    max-width: 800px;
+    /* Limit maximum width */
+    min-height: 400px;
+    margin: 0 auto;
+    /* Center the player */
+    border-radius: 4px;
+}
+
+/* Natural size wrapper for grading view */
+.cloudflarestream-grading-view .cloudflarestream-player-wrapper {
+    width: 100%;
+    max-width: 800px;
+    /* Match container max-width */
+    margin: 0 auto;
+    /* Center the wrapper */
+}
+
+/* Ensure player fills left column properly */
+.cloudflarestream-left-column .cloudflarestream-player-wrapper {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+}
+
+.cloudflarestream-left-column .cloudflarestream-player-container {
+    flex: 1;
+    width: 100%;
+    height: 100%;
+    min-height: 400px;
+    margin: 0;
+    border-radius: 0;
+}
+
+/* Ensure grading content fits properly in right column */
+.cloudflarestream-right-column .form-group,
+.cloudflarestream-right-column .fitem {
+    max-width: 100%;
+    margin-bottom: 15px;
+}
+
+.cloudflarestream-right-column .btn {
+    margin-right: 10px;
+    margin-bottom: 10px;
+}
+
+/* Ensure proper text wrapping and Moodle functionality preservation */
+.cloudflarestream-right-column textarea {
+    width: 100% !important;
+    resize: vertical;
+    /* Only allow vertical resize */
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+}
+
+/* Ensure all form elements wrap properly */
+.cloudflarestream-right-column input[type="text"],
+.cloudflarestream-right-column input[type="number"],
+.cloudflarestream-right-column select {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+}
+
+/* Prevent text overflow without breaking functionality */
+.cloudflarestream-right-column {
+    max-width: 100%;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    box-sizing: border-box;
+}
+
+/* Fix for any long text content that might not wrap */
+.cloudflarestream-right-column div,
+.cloudflarestream-right-column span,
+.cloudflarestream-right-column p {
+    max-width: 100%;
+    word-wrap: break-word !important;
+    overflow-wrap: break-word !important;
+    box-sizing: border-box;
+}
+
+/* Preserve Moodle's editor functionality */
+.cloudflarestream-right-column .editor_atto,
+.cloudflarestream-right-column .form-control,
+.cloudflarestream-right-column .form-group {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+}
+
+/* Scrollbar styling for right column */
+.cloudflarestream-right-column::-webkit-scrollbar {
+    width: 8px;
+}
+
+.cloudflarestream-right-column::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+.cloudflarestream-right-column::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 4px;
+}
+
+.cloudflarestream-right-column::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;
+}
+
+/* Responsive layout for tablets */
+@media (max-width: 1200px) {
+    .cloudflarestream-two-column-layout {
+        grid-template-columns: 60% 40%;
+        /* Adjust ratio for smaller screens */
+    }
+}
+
+@media (max-width: 992px) {
+    .cloudflarestream-two-column-layout {
+        grid-template-columns: 55% 45%;
+        /* Further adjust ratio */
+        gap: 15px;
+    }
+}
+
+/* Responsive layout for mobile - stack vertically */
+@media (max-width: 768px) {
+    .cloudflarestream-two-column-layout {
+        grid-template-columns: 1fr;
+        /* Single column */
+        height: auto;
+        min-height: auto;
+        gap: 15px;
+    }
+
+    .cloudflarestream-left-column {
+        order: 1;
+        min-height: 300px;
+    }
+
+    .cloudflarestream-right-column {
+        order: 2;
+        max-height: none;
+        padding: 15px;
+    }
+}
+
+@media (max-width: 480px) {
+    .cloudflarestream-two-column-layout {
+        gap: 10px;
+    }
+
+    .cloudflarestream-left-column {
+        min-height: 250px;
+        margin-bottom: 15px;
+    }
+
+    .cloudflarestream-right-column {
+        padding: 15px;
+    }
+
+    .cloudflarestream-grading-view .cloudflarestream-player-container {
+        min-height: 250px;
+    }
+}
+
+/* Ensure proper integration with Moodle's grading interface */
+.path-mod-assign [data-region="grade-panel"] .cloudflarestream-two-column-layout {
+    height: calc(100vh - 100px);
+    /* Adjust for Moodle's grading panel */
+}
+
+/* Fix for Moodle's grading table when using two-column layout */
+.path-mod-assign .submissionstatustable .cloudflarestream-two-column-layout {
+    margin: 0;
+    padding: 0;
+}

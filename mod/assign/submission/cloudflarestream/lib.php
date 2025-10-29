@@ -568,6 +568,9 @@ class assign_submission_cloudflarestream extends assign_submission_plugin {
             return '';
         }
 
+        // Load JavaScript for grading interface injection
+        $PAGE->requires->js_call_amd('assignsubmission_cloudflarestream/grading_injector', 'init');
+
         // Check if we're in grading context
         $is_grading = $this->is_grading_context();
         
@@ -621,10 +624,24 @@ class assign_submission_cloudflarestream extends assign_submission_plugin {
         
         switch ($video->upload_status) {
             case 'ready':
-                $icon = '<i class="fa fa-video-camera text-success" aria-hidden="true"></i>';
-                $output = $icon . ' ' . $statustext;
+                // Create a link to view the video in a new tab.
+                $viewurl = new moodle_url('/mod/assign/submission/cloudflarestream/view_video.php', [
+                    'id' => $submission->id,
+                    'video_uid' => $video->video_uid
+                ]);
                 
-                // Add file size if available
+                $icon = '<i class="fa fa-video-camera text-success" aria-hidden="true"></i>';
+                $output = html_writer::link(
+                    $viewurl,
+                    $icon . ' ' . $statustext,
+                    [
+                        'target' => '_blank',
+                        'title' => get_string('watchvideo', 'assignsubmission_cloudflarestream'),
+                        'class' => 'cloudflarestream-watch-link'
+                    ]
+                );
+                
+                // Add file size if available.
                 if ($video->file_size) {
                     $output .= ' (' . display_size($video->file_size) . ')';
                 }
