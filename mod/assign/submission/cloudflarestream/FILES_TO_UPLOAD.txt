@@ -1,7 +1,7 @@
 CLOUDFLARE STREAM PLUGIN - FILES TO UPLOAD
 ==========================================
 
-Upload these 6 files to your server:
+Upload these 7 files to your server:
 
 1. mod/assign/submission/cloudflarestream/view_video.php
    → NEW FILE - View video in new tab
@@ -12,13 +12,16 @@ Upload these 6 files to your server:
 3. mod/assign/submission/cloudflarestream/amd/build/grading_injector.min.js
    → NEW FILE - Minified version for production
 
-4. mod/assign/submission/cloudflarestream/styles.css
+4. mod/assign/submission/cloudflarestream/classes/task/cleanup_videos.php
+   → MODIFIED - Added sync to detect manually deleted videos
+
+5. mod/assign/submission/cloudflarestream/styles.css
    → MODIFIED - Added two-column layout styles
 
-5. mod/assign/submission/cloudflarestream/lib.php
+6. mod/assign/submission/cloudflarestream/lib.php
    → MODIFIED - Added clickable link + JavaScript loading
 
-6. mod/assign/submission/cloudflarestream/lang/en/assignsubmission_cloudflarestream.php
+7. mod/assign/submission/cloudflarestream/lang/en/assignsubmission_cloudflarestream.php
    → MODIFIED - Added watchvideo language string
 
 
@@ -60,6 +63,7 @@ FEATURES:
 ✅ All grading features work normally
 ✅ Professional appearance
 ✅ No configuration needed
+✅ Sync with Cloudflare (detects manually deleted videos)
 
 
 ROLLBACK (if needed):
@@ -72,3 +76,38 @@ If you need to revert:
 4. Restore styles.css from backup
 5. Restore language file from backup
 6. Clear Moodle cache
+
+
+
+VIDEO DELETION BEHAVIOR:
+========================
+
+Scenario 1: Delete from Moodle plugin (videomanagement.php)
+   → Deletes from Cloudflare ✅
+   → Updates database (status='deleted') ✅
+   → Works correctly ✅
+
+Scenario 2: Delete from Cloudflare dashboard
+   → Video deleted from Cloudflare ✅
+   → Database NOT updated immediately ⚠️
+   → Sync runs daily (cleanup task) to detect and update ✅
+   → After sync: Database updated (status='deleted') ✅
+
+Scenario 3: Scheduled cleanup task (runs daily)
+   → Deletes old videos from Cloudflare ✅
+   → Updates database records ✅
+   → Syncs with Cloudflare to detect manual deletions ✅
+   → Works correctly ✅
+
+SYNC MECHANISM:
+===============
+
+The cleanup task now includes a sync step that:
+1. Checks all videos marked as 'ready' in database
+2. Verifies each video still exists in Cloudflare
+3. If video not found in Cloudflare:
+   - Updates database: status='deleted'
+   - Sets deleted_timestamp
+   - Adds note: "Video deleted from Cloudflare dashboard"
+
+This runs daily, so manually deleted videos will be detected within 24 hours.

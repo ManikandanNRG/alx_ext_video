@@ -53,6 +53,7 @@ class cleanup_videos extends \core\task\scheduled_task {
      *
      * Finds videos older than the retention period and deletes them from
      * Cloudflare Stream, updating the database records accordingly.
+     * Also syncs database with Cloudflare to detect manually deleted videos.
      */
     public function execute() {
         global $DB;
@@ -72,6 +73,80 @@ class cleanup_videos extends \core\task\scheduled_task {
             mtrace('Cloudflare Stream cleanup: Invalid retention period configured. Skipping cleanup.');
             return;
         }
+
+        // Initialize Cloudflare client (used by both cleanup and sync).
+        $cloudflare = new cloudflare_client($apitoken, $accountid);
+
+        // Step 1: Sync database with Cloudflare (detect manually deleted videos).
+        $this->sync_with_cloudflare($cloudflare);
+
+        // Step 2: Clean up expired videos.
+        $this->cleanup_expired_videos($cloudflare, $retentiondays);
+    }
+
+    /**
+     * Sync database with Cloudflare to detect manually deleted videos.
+     *
+     * @param cloudflare_client $cloudflare Cloudflare API client
+     */
+    private function sync_with_cloudflare($cloudflare) {
+        global $DB;
+
+        mtrace('Cloudflare Stream sync: Checking for videos deleted from Cloudflare dashboard...');
+
+        // Get all videos marked as 'ready' in database.
+        $readyvideos = $DB->get_records('assignsubmission_cfstream', 
+            ['upload_status' => 'ready'], 
+            '', 
+            'id, video_uid, upload_timestamp'
+        );
+
+        if (empty($readyvideos)) {
+            mtrace('Cloudflare Stream sync: No ready videos to check.');
+            return;
+        }
+
+        mtrace('Cloudflare Stream sync: Checking ' . count($readyvideos) . ' videos...');
+
+        $syncedcount = 0;
+        $notfoundcount = 0;
+
+        foreach ($readyvideos as $video) {
+            try {
+                // Check if video still exists in Cloudflare.
+                $cloudflare->get_video_details($video->video_uid);
+                // Video exists, no action needed.
+                $syncedcount++;
+
+            } catch (cloudflare_video_not_found_exception $e) {
+                // Video was deleted from Cloudflare, update our database.
+                $updaterecord = new \stdClass();
+                $updaterecord->id = $video->id;
+                $updaterecord->upload_status = 'deleted';
+                $updaterecord->deleted_timestamp = time();
+                $updaterecord->error_message = 'Video deleted from Cloudflare dashboard';
+                $DB->update_record('assignsubmission_cfstream', $updaterecord);
+
+                $notfoundcount++;
+                mtrace("Cloudflare Stream sync: Video {$video->video_uid} was deleted from Cloudflare, updated database");
+
+            } catch (cloudflare_api_exception $e) {
+                // API error, skip this video and continue.
+                mtrace("Cloudflare Stream sync: WARNING - Could not check video {$video->video_uid}: " . $e->getMessage());
+            }
+        }
+
+        mtrace("Cloudflare Stream sync: Completed. {$syncedcount} videos verified, {$notfoundcount} marked as deleted");
+    }
+
+    /**
+     * Clean up expired videos based on retention period.
+     *
+     * @param cloudflare_client $cloudflare Cloudflare API client
+     * @param int $retentiondays Retention period in days
+     */
+    private function cleanup_expired_videos($cloudflare, $retentiondays) {
+        global $DB;
 
         // Calculate cutoff timestamp.
         $cutofftimestamp = time() - ($retentiondays * 86400);
@@ -95,9 +170,6 @@ class cleanup_videos extends \core\task\scheduled_task {
         }
 
         mtrace('Cloudflare Stream cleanup: Found ' . count($expiredvideos) . ' expired videos to delete.');
-
-        // Initialize Cloudflare client.
-        $cloudflare = new cloudflare_client($apitoken, $accountid);
 
         // Track cleanup results.
         $deletedcount = 0;
