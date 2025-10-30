@@ -568,6 +568,53 @@ class assign_submission_cloudflarestream extends assign_submission_plugin {
             return '';
         }
 
+        // TASK 4: Check Cloudflare for updated status if video is not ready
+        // This fixes videos stuck in "uploading" or "pending" status
+        if (($video->upload_status === 'uploading' || $video->upload_status === 'pending') && !empty($video->video_uid)) {
+            // Only check if at least 60 seconds have passed since upload (avoid too frequent API calls)
+            if (time() - $video->upload_timestamp > 60) {
+                try {
+                    $apitoken = get_config('assignsubmission_cloudflarestream', 'apitoken');
+                    $accountid = get_config('assignsubmission_cloudflarestream', 'accountid');
+                    
+                    if (!empty($apitoken) && !empty($accountid)) {
+                        require_once($CFG->dirroot . '/mod/assign/submission/cloudflarestream/classes/api/cloudflare_client.php');
+                        
+                        $client = new \assignsubmission_cloudflarestream\api\cloudflare_client($apitoken, $accountid);
+                        $details = $client->get_video_details($video->video_uid);
+                        
+                        // Update DB if status changed to ready
+                        if (isset($details->readyToStream) && $details->readyToStream === true) {
+                            $video->upload_status = 'ready';
+                            
+                            // Update metadata if available
+                            if (isset($details->duration)) {
+                                $video->duration = (int)$details->duration;
+                            }
+                            if (isset($details->size)) {
+                                $video->file_size = (int)$details->size;
+                            }
+                            
+                            $DB->update_record('assignsubmission_cfstream', $video);
+                            
+                            // Log the status update for debugging
+                            error_log("Cloudflare video {$video->video_uid} status updated to ready on page view");
+                        }
+                    }
+                } catch (\assignsubmission_cloudflarestream\api\cloudflare_video_not_found_exception $e) {
+                    // Video was deleted from Cloudflare
+                    $video->upload_status = 'deleted';
+                    $video->deleted_timestamp = time();
+                    $video->error_message = 'Video not found in Cloudflare';
+                    $DB->update_record('assignsubmission_cfstream', $video);
+                    error_log("Cloudflare video {$video->video_uid} not found, marked as deleted");
+                } catch (Exception $e) {
+                    // Silently fail, will try again next time page is viewed
+                    error_log("Failed to check Cloudflare status for video {$video->video_uid}: " . $e->getMessage());
+                }
+            }
+        }
+
         // Load JavaScript for grading interface injection
         $PAGE->requires->js_call_amd('assignsubmission_cloudflarestream/grading_injector', 'init');
 
@@ -645,6 +692,16 @@ class assign_submission_cloudflarestream extends assign_submission_plugin {
                 if ($video->file_size) {
                     $output .= ' (' . display_size($video->file_size) . ')';
                 }
+                break;
+                
+            case 'uploading':
+                $icon = '<i class="fa fa-clock-o text-warning" aria-hidden="true"></i> ';
+                $output = $icon . $statustext;
+                
+                // TASK 6: Add helpful message telling user to refresh
+                $output .= '<br><small class="text-muted">';
+                $output .= get_string('video_processing_message', 'assignsubmission_cloudflarestream');
+                $output .= '</small>';
                 break;
                 
             case 'pending':

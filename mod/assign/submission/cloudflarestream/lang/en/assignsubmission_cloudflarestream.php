@@ -271,3 +271,6 @@ $string['videonotsupported'] = 'Your browser does not support video playback.';
 // File format information strings (Task 1).
 $string['acceptedformats'] = 'Accepted formats';
 $string['uploadinfo'] = 'Upload information';
+
+// Processing message (Task 6).
+$string['video_processing_message'] = 'Your video is being processed by Cloudflare. This usually takes 1-2 minutes. Please refresh the page in a moment.';
