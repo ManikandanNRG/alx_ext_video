@@ -356,8 +356,8 @@ define(['jquery'], function ($) {
         /**
          * Confirm upload with retry - polls Cloudflare status until ready or max attempts.
          * 
-         * For small files: Usually ready on first attempt (3 seconds)
-         * For large files: Retries up to 5 times (total ~30 seconds)
+         * For small files: Usually ready on first attempt (5 seconds)
+         * For large files: Retries up to 5 times (total 60 seconds)
          * If still processing: Saves as "uploading" and user can refresh later
          *
          * @param {string} videoId The Cloudflare video ID
@@ -366,7 +366,7 @@ define(['jquery'], function ($) {
          */
         async confirmUploadWithRetry(videoId, submissionId) {
             const maxAttempts = 5;
-            const delays = [3000, 5000, 7000, 10000, 15000]; // Total: ~40 seconds
+            const delays = [5000, 10000, 15000, 15000, 15000]; // Total: 60 seconds
             
             for (let attempt = 0; attempt < maxAttempts; attempt++) {
                 // Wait before checking (except first attempt which waits 3 seconds)

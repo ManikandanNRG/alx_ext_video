@@ -267,3 +267,7 @@ $string['task_cleanup_videos'] = 'Clean up old Cloudflare Stream videos';
 // Video viewing strings.
 $string['watchvideo'] = 'Watch video';
 $string['videonotsupported'] = 'Your browser does not support video playback.';
+
+// File format information strings (Task 1).
+$string['acceptedformats'] = 'Accepted formats';
+$string['uploadinfo'] = 'Upload information';

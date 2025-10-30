@@ -841,3 +841,32 @@
     margin: 0;
     padding: 0;
 }
+
+/* Upload information box (Task 1) */
+.cloudflarestream-upload-info {
+    margin-bottom: 20px;
+    padding: 15px;
+    background-color: #e7f3ff;
+    border-left: 4px solid #0066cc;
+    border-radius: 4px;
+}
+
+.cloudflarestream-upload-info .row {
+    margin: 0;
+}
+
+.cloudflarestream-upload-info strong {
+    color: #0066cc;
+    font-size: 14px;
+}
+
+.cloudflarestream-upload-info small {
+    color: #666;
+    font-size: 13px;
+    display: block;
+    margin-top: 5px;
+}
+
+.cloudflarestream-upload-info i {
+    margin-right: 5px;
+}
