@@ -188,9 +188,32 @@ class cloudflare_client {
         $endpoint = "/accounts/{$this->accountid}/stream/{$videouid}";
         $response = $this->make_request('DELETE', $endpoint);
         
-        // Validate API response.
-        validator::validate_api_response($response);
+        // Debug: Log the actual response from Cloudflare
+        error_log('Cloudflare DELETE response for ' . $videouid . ': ' . json_encode($response));
         
+        // For DELETE requests, we only need to check success field
+        // The result field may be empty or null, which is normal
+        if (!isset($response->success)) {
+            error_log('Cloudflare DELETE response missing success field');
+            throw new cloudflare_api_exception(
+                'cloudflare_api_error',
+                'Invalid response from Cloudflare API'
+            );
+        }
+        
+        if ($response->success !== true) {
+            $errormsg = 'Failed to delete video from Cloudflare';
+            if (isset($response->errors) && !empty($response->errors)) {
+                $errormsg .= ': ' . json_encode($response->errors);
+            }
+            error_log('Cloudflare DELETE failed: ' . $errormsg);
+            throw new cloudflare_api_exception(
+                'cloudflare_api_error',
+                $errormsg
+            );
+        }
+        
+        error_log('Cloudflare DELETE successful for ' . $videouid);
         return true;
     }
 

@@ -96,9 +96,8 @@ class cleanup_videos extends \core\task\scheduled_task {
     private function cleanup_stuck_uploads($cloudflare) {
         global $DB;
 
-        // Find uploads stuck for more than 5 minutes (for testing) or 1 hour (production)
-        // Change 300 to 3600 for production (1 hour)
-        $waittime = 300; // 5 minutes for testing, use 3600 for production
+        // Find uploads stuck for more than 1 hour
+        $waittime = 3600; // 1 hour (production setting)
         $cutofftimestamp = time() - $waittime;
         
         mtrace("Cloudflare Stream cleanup: Checking for stuck uploads (pending/uploading > " . ($waittime/60) . " minutes)...");
