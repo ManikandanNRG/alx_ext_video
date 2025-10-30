@@ -210,7 +210,7 @@ define(['jquery'], function ($) {
         }
 
         /**
-         * Start the upload process.
+         * Start the upload process with automatic cleanup on failure.
          *
          * @param {File} file The file to upload
          */
@@ -220,13 +220,15 @@ define(['jquery'], function ($) {
                 return;
             }
 
+            let uploadData = null; // Store upload data for cleanup
+
             try {
                 this.uploadInProgress = true;
                 this.showProgress();
                 this.updateProgress(0);
 
                 // Request upload URL from Moodle
-                const uploadData = await this.requestUploadUrl(file);
+                uploadData = await this.requestUploadUrl(file);
 
                 // Upload file directly to Cloudflare
                 await this.uploadToCloudflare(file, uploadData);
@@ -240,7 +242,48 @@ define(['jquery'], function ($) {
                 this.showSuccess();
 
             } catch (error) {
+                // TASK 7 PHASE 1: Upload failed - clean up the dummy entry
+                if (uploadData && uploadData.uid) {
+                    console.log('Upload failed, cleaning up video: ' + uploadData.uid);
+                    await this.cleanupFailedUpload(uploadData.uid, uploadData.submissionid);
+                }
+                
                 this.handleError(error);
+            }
+        }
+
+        /**
+         * Clean up failed upload - delete video from Cloudflare and database.
+         * This prevents dummy "Pending Upload" entries in Cloudflare.
+         * (TASK 7 PHASE 1)
+         *
+         * @param {string} videoUid The Cloudflare video UID to delete
+         * @param {number} submissionId The submission ID
+         * @return {Promise<void>}
+         */
+        async cleanupFailedUpload(videoUid, submissionId) {
+            if (!videoUid) {
+                return; // Nothing to clean up
+            }
+            
+            try {
+                console.log('Cleaning up failed upload: ' + videoUid);
+                
+                await $.ajax({
+                    url: M.cfg.wwwroot + '/mod/assign/submission/cloudflarestream/ajax/cleanup_failed_upload.php',
+                    method: 'POST',
+                    data: {
+                        videouid: videoUid,
+                        submissionid: submissionId,
+                        sesskey: M.cfg.sesskey
+                    },
+                    dataType: 'json'
+                });
+                
+                console.log('Successfully cleaned up failed upload: ' + videoUid);
+            } catch (error) {
+                // Silently fail - cleanup will be handled by scheduled task
+                console.error('Failed to cleanup video ' + videoUid + ':', error);
             }
         }
 

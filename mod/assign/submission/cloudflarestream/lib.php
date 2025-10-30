@@ -413,6 +413,10 @@ class assign_submission_cloudflarestream extends assign_submission_plugin {
             $context['videouid'] = $video->video_uid;
             $context['videostatus_ready'] = ($video->upload_status === 'ready');
             
+            // Get translated status text
+            $statuskey = 'status_' . $video->upload_status;
+            $context['videostatustext'] = get_string($statuskey, 'assignsubmission_cloudflarestream');
+            
             if ($video->duration) {
                 $context['duration'] = $video->duration;
                 $context['durationformatted'] = format_time($video->duration);

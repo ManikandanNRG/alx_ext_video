@@ -77,11 +77,100 @@ class cleanup_videos extends \core\task\scheduled_task {
         // Initialize Cloudflare client (used by both cleanup and sync).
         $cloudflare = new cloudflare_client($apitoken, $accountid);
 
-        // Step 1: Sync database with Cloudflare (detect manually deleted videos).
+        // Step 1: Clean up stuck/failed uploads (pending/uploading for > 1 hour).
+        $this->cleanup_stuck_uploads($cloudflare);
+
+        // Step 2: Sync database with Cloudflare (detect manually deleted videos).
         $this->sync_with_cloudflare($cloudflare);
 
-        // Step 2: Clean up expired videos.
+        // Step 3: Clean up expired videos.
         $this->cleanup_expired_videos($cloudflare, $retentiondays);
+    }
+
+    /**
+     * Clean up stuck uploads (pending/uploading for more than 1 hour).
+     * These are uploads that failed but JavaScript cleanup didn't run (e.g., browser closed).
+     *
+     * @param cloudflare_client $cloudflare Cloudflare API client
+     */
+    private function cleanup_stuck_uploads($cloudflare) {
+        global $DB;
+
+        // Find uploads stuck for more than 5 minutes (for testing) or 1 hour (production)
+        // Change 300 to 3600 for production (1 hour)
+        $waittime = 300; // 5 minutes for testing, use 3600 for production
+        $cutofftimestamp = time() - $waittime;
+        
+        mtrace("Cloudflare Stream cleanup: Checking for stuck uploads (pending/uploading > " . ($waittime/60) . " minutes)...");
+        mtrace("Current time: " . time() . " (" . date('Y-m-d H:i:s') . ")");
+        mtrace("Cutoff time: " . $cutofftimestamp . " (" . date('Y-m-d H:i:s', $cutofftimestamp) . ")");
+        
+        // Debug: Check all pending/uploading records
+        $allpending = $DB->get_records_sql(
+            "SELECT id, video_uid, upload_status, upload_timestamp FROM {assignsubmission_cfstream} 
+             WHERE upload_status IN ('pending', 'uploading')"
+        );
+        mtrace("Total pending/uploading records in database: " . count($allpending));
+        foreach ($allpending as $record) {
+            $age = time() - $record->upload_timestamp;
+            mtrace("  - ID {$record->id}: {$record->upload_status}, timestamp {$record->upload_timestamp} (" . 
+                   date('Y-m-d H:i:s', $record->upload_timestamp) . "), age: " . round($age/60) . " minutes");
+        }
+
+        $sql = "SELECT id, video_uid, assignment, submission, upload_status, upload_timestamp
+                FROM {assignsubmission_cfstream}
+                WHERE upload_status IN ('pending', 'uploading')
+                AND upload_timestamp < ?
+                ORDER BY upload_timestamp ASC";
+
+        $stuckuploads = $DB->get_records_sql($sql, [$cutofftimestamp]);
+        
+        mtrace("SQL query returned " . count($stuckuploads) . " records");
+
+        if (empty($stuckuploads)) {
+            mtrace('Cloudflare Stream cleanup: No stuck uploads found.');
+            return;
+        }
+
+        mtrace('Cloudflare Stream cleanup: Found ' . count($stuckuploads) . ' stuck uploads to clean up.');
+
+        $deletedcount = 0;
+        $notfoundcount = 0;
+        $failedcount = 0;
+
+        foreach ($stuckuploads as $upload) {
+            // Skip if video_uid is empty (very old records)
+            if (empty($upload->video_uid)) {
+                // Just delete the database record
+                $DB->delete_records('assignsubmission_cfstream', ['id' => $upload->id]);
+                $deletedcount++;
+                mtrace("Cloudflare Stream cleanup: Deleted database record {$upload->id} (empty video_uid)");
+                continue;
+            }
+
+            try {
+                // Try to delete from Cloudflare
+                $cloudflare->delete_video($upload->video_uid);
+                $deletedcount++;
+                mtrace("Cloudflare Stream cleanup: Deleted stuck upload {$upload->video_uid} from Cloudflare");
+
+            } catch (cloudflare_video_not_found_exception $e) {
+                // Video doesn't exist in Cloudflare (already deleted or never created)
+                $notfoundcount++;
+                mtrace("Cloudflare Stream cleanup: Stuck upload {$upload->video_uid} not found in Cloudflare");
+
+            } catch (cloudflare_api_exception $e) {
+                // API error - log and continue
+                $failedcount++;
+                mtrace("Cloudflare Stream cleanup: ERROR - Failed to delete {$upload->video_uid}: " . $e->getMessage());
+            }
+
+            // Delete database record regardless of Cloudflare result
+            $DB->delete_records('assignsubmission_cfstream', ['id' => $upload->id]);
+        }
+
+        mtrace("Cloudflare Stream cleanup: Stuck uploads cleanup completed. " .
+               "{$deletedcount} deleted, {$notfoundcount} not found, {$failedcount} failed");
     }
 
     /**

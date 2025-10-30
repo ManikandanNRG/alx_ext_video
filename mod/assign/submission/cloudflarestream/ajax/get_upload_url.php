@@ -95,10 +95,11 @@ try {
     $submission = $assign->get_user_submission($USER->id, true);
     
     // Create database record with pending status.
+    // IMPORTANT: Store video_uid immediately so cleanup can find it if upload fails
     $record = new stdClass();
     $record->assignment = $assignmentid;
     $record->submission = $submission->id;
-    $record->video_uid = ''; // Will be filled in when upload completes.
+    $record->video_uid = $result->uid; // Store UID immediately for cleanup
     $record->upload_status = 'pending';
     $record->upload_timestamp = time();
     
