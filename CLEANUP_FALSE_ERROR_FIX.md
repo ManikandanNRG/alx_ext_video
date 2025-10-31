@@ -2,7 +2,8 @@
 
 **Date:** October 31, 2025  
 **Issue:** False error message during cleanup even though deletion succeeds  
-**Status:** ✅ FIXED
+**Status:** ✅ FIXED AND TESTED
+**Root Cause:** Cloudflare returns empty response body for successful DELETE requests
 
 ---
 
@@ -26,7 +27,9 @@ Cloudflare Stream cleanup: Stuck uploads cleanup completed. 0 deleted, 0 not fou
 
 ## Root Cause
 
-In `cloudflare_client.php`, the `delete_video()` method had **redundant validation**:
+**Cloudflare's DELETE API returns an empty response body** (HTTP 200 with no JSON) when deletion is successful. Our code was trying to parse this empty string as JSON, which returned `null`, and then checking for `$decoded->success` failed because the object didn't exist.
+
+### Original Problem in `cloudflare_client.php`:
 
 ```php
 public function delete_video($videouid) {
@@ -58,30 +61,36 @@ So the extra validation in `delete_video()` was unnecessary and causing false er
 
 **File:** `mod/assign/submission/cloudflarestream/classes/api/cloudflare_client.php`
 
-**Changed:**
+**Added special handling in `make_request()` method:**
+
 ```php
-public function delete_video($videouid) {
-    // Validate input parameters.
-    $videouid = validator::validate_video_uid($videouid);
-    
-    $endpoint = "/accounts/{$this->accountid}/stream/{$videouid}";
-    
-    // make_request() already validates the response and checks for success
-    // It will throw appropriate exceptions if there are any errors
-    $response = $this->make_request('DELETE', $endpoint);
-    
-    // If we reach here, the deletion was successful
-    // (make_request would have thrown an exception otherwise)
-    return true;
+// Decode JSON response.
+// For DELETE requests, Cloudflare may return an empty body on success
+if (empty($response) && $method === 'DELETE' && $httpcode === 200) {
+    // Return a synthetic success response
+    return (object)[
+        'success' => true,
+        'result' => null,
+        'errors' => [],
+        'messages' => []
+    ];
+}
+
+$decoded = json_decode($response);
+if ($decoded === null) {
+    throw new cloudflare_api_exception(
+        'cloudflare_invalid_response',
+        'Failed to decode JSON response: ' . $response
+    );
 }
 ```
 
 **What Changed:**
-1. ✅ Removed redundant `if (!isset($response->success))` check
-2. ✅ Removed redundant `if ($response->success !== true)` check
-3. ✅ Removed debug error_log statements (no longer needed)
-4. ✅ Simplified to trust `make_request()` validation
-5. ✅ Added clear comments explaining the logic
+1. ✅ Added check for empty response body on DELETE requests
+2. ✅ When DELETE returns HTTP 200 with empty body → treat as success
+3. ✅ Return synthetic success response object
+4. ✅ Prevents JSON decode error on empty string
+5. ✅ Works for all DELETE operations (cleanup, manual deletion, etc.)
 
 ---
 
@@ -94,17 +103,18 @@ public function delete_video($videouid) {
 
 ---
 
-## Expected Results After Fix
+## Test Results After Fix ✅
 
-When running `run_cleanup_now.php` with the same test scenario:
+**Actual output from `run_cleanup_now.php`:**
 
 ```
 Cloudflare Stream cleanup: Found 1 stuck uploads to clean up.
-Cloudflare Stream cleanup: Deleted stuck upload 437c2e2d588e2e383803206bea925f34 from Cloudflare
+Cloudflare Stream cleanup: Deleted stuck upload d17c4cb41d8b8d36d40276cc595801b0 from Cloudflare
 Cloudflare Stream cleanup: Stuck uploads cleanup completed. 1 deleted, 0 not found, 0 failed
+✓ Cleanup task completed successfully!
 ```
 
-**Perfect!** ✅
+**Perfect!** ✅ No more false errors!
 
 ---
 

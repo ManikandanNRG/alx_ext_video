@@ -28,8 +28,8 @@ $tasks = [
     [
         'classname' => 'assignsubmission_cloudflarestream\task\cleanup_videos',
         'blocking' => 0,
-        'minute' => '0',
-        'hour' => '2',
+        'minute' => '*/30',  // Run every 30 minutes
+        'hour' => '*',       // Every hour
         'day' => '*',
         'dayofweek' => '*',
         'month' => '*'
