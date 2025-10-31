@@ -88,7 +88,7 @@ class cleanup_videos extends \core\task\scheduled_task {
     }
 
     /**
-     * Clean up stuck uploads (pending/uploading for more than 1 hour).
+     * Clean up stuck uploads (pending/uploading for more than 5 minutes).
      * These are uploads that failed but JavaScript cleanup didn't run (e.g., browser closed).
      *
      * @param cloudflare_client $cloudflare Cloudflare API client
@@ -96,8 +96,8 @@ class cleanup_videos extends \core\task\scheduled_task {
     private function cleanup_stuck_uploads($cloudflare) {
         global $DB;
 
-        // Find uploads stuck for more than 1 hour
-        $waittime = 3600; // 1 hour (production setting)
+        // Find uploads stuck for more than 5 minutes
+        $waittime = 300; // 5 minutes (TESTING - change to 3600 for production)
         $cutofftimestamp = time() - $waittime;
         
         mtrace("Cloudflare Stream cleanup: Checking for stuck uploads (pending/uploading > " . ($waittime/60) . " minutes)...");
