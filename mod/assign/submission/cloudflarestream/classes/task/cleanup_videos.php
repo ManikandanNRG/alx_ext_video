@@ -149,17 +149,23 @@ class cleanup_videos extends \core\task\scheduled_task {
 
             try {
                 // Try to delete from Cloudflare
+                error_log("CLEANUP DEBUG: About to call delete_video for UID: {$upload->video_uid}");
                 $cloudflare->delete_video($upload->video_uid);
+                error_log("CLEANUP DEBUG: delete_video returned successfully for UID: {$upload->video_uid}");
                 $deletedcount++;
                 mtrace("Cloudflare Stream cleanup: Deleted stuck upload {$upload->video_uid} from Cloudflare");
 
             } catch (cloudflare_video_not_found_exception $e) {
                 // Video doesn't exist in Cloudflare (already deleted or never created)
+                error_log("CLEANUP DEBUG: Video not found exception for UID: {$upload->video_uid}");
                 $notfoundcount++;
                 mtrace("Cloudflare Stream cleanup: Stuck upload {$upload->video_uid} not found in Cloudflare");
 
             } catch (cloudflare_api_exception $e) {
                 // API error - log and continue
+                error_log("CLEANUP DEBUG: API exception caught for UID: {$upload->video_uid}");
+                error_log("CLEANUP DEBUG: Exception message: " . $e->getMessage());
+                error_log("CLEANUP DEBUG: Exception trace: " . $e->getTraceAsString());
                 $failedcount++;
                 mtrace("Cloudflare Stream cleanup: ERROR - Failed to delete {$upload->video_uid}: " . $e->getMessage());
             }

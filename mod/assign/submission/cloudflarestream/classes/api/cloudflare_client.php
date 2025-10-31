@@ -186,34 +186,24 @@ class cloudflare_client {
         $videouid = validator::validate_video_uid($videouid);
         
         $endpoint = "/accounts/{$this->accountid}/stream/{$videouid}";
-        $response = $this->make_request('DELETE', $endpoint);
         
-        // Debug: Log the actual response from Cloudflare
-        error_log('Cloudflare DELETE response for ' . $videouid . ': ' . json_encode($response));
+        error_log("DELETE_VIDEO: About to call make_request for DELETE {$endpoint}");
         
-        // For DELETE requests, we only need to check success field
-        // The result field may be empty or null, which is normal
-        if (!isset($response->success)) {
-            error_log('Cloudflare DELETE response missing success field');
-            throw new cloudflare_api_exception(
-                'cloudflare_api_error',
-                'Invalid response from Cloudflare API'
-            );
+        // make_request() already validates the response and checks for success
+        // It will throw appropriate exceptions if there are any errors
+        try {
+            $response = $this->make_request('DELETE', $endpoint);
+            error_log("DELETE_VIDEO: make_request returned successfully");
+            error_log("DELETE_VIDEO: Response: " . json_encode($response));
+        } catch (\Exception $e) {
+            error_log("DELETE_VIDEO: Exception caught in delete_video");
+            error_log("DELETE_VIDEO: Exception class: " . get_class($e));
+            error_log("DELETE_VIDEO: Exception message: " . $e->getMessage());
+            throw $e; // Re-throw the exception
         }
         
-        if ($response->success !== true) {
-            $errormsg = 'Failed to delete video from Cloudflare';
-            if (isset($response->errors) && !empty($response->errors)) {
-                $errormsg .= ': ' . json_encode($response->errors);
-            }
-            error_log('Cloudflare DELETE failed: ' . $errormsg);
-            throw new cloudflare_api_exception(
-                'cloudflare_api_error',
-                $errormsg
-            );
-        }
-        
-        error_log('Cloudflare DELETE successful for ' . $videouid);
+        // If we reach here, the deletion was successful
+        // (make_request would have thrown an exception otherwise)
         return true;
     }
 
@@ -288,6 +278,8 @@ class cloudflare_client {
     protected function make_request($method, $endpoint, $data = null) {
         $url = $this->baseurl . $endpoint;
 
+        error_log("MAKE_REQUEST: Starting {$method} request to {$url}");
+
         $headers = [
             'Authorization: Bearer ' . $this->apitoken,
             'Content-Type: application/json'
@@ -308,6 +300,9 @@ class cloudflare_client {
         $curlerror = curl_error($ch);
         curl_close($ch);
 
+        error_log("MAKE_REQUEST: Got HTTP {$httpcode}, Response length: " . strlen($response));
+        error_log("MAKE_REQUEST: Raw response: " . $response);
+
         // Handle cURL errors.
         if ($response === false) {
             throw new cloudflare_api_exception(
@@ -317,6 +312,18 @@ class cloudflare_client {
         }
 
         // Decode JSON response.
+        // For DELETE requests, Cloudflare may return an empty body on success
+        if (empty($response) && $method === 'DELETE' && $httpcode === 200) {
+            error_log("MAKE_REQUEST: DELETE returned empty body with HTTP 200 - treating as success");
+            // Return a synthetic success response
+            return (object)[
+                'success' => true,
+                'result' => null,
+                'errors' => [],
+                'messages' => []
+            ];
+        }
+        
         $decoded = json_decode($response);
         if ($decoded === null) {
             throw new cloudflare_api_exception(
@@ -357,7 +364,16 @@ class cloudflare_client {
         }
 
         // Check if API returned success.
+        // For DELETE requests, Cloudflare may return an empty body or just success=true
         if (!isset($decoded->success) || $decoded->success !== true) {
+            // Debug: Log what we actually received
+            error_log('Cloudflare API Response Debug:');
+            error_log('  Method: ' . $method);
+            error_log('  Endpoint: ' . $endpoint);
+            error_log('  HTTP Code: ' . $httpcode);
+            error_log('  Response: ' . json_encode($decoded));
+            error_log('  Success field: ' . (isset($decoded->success) ? var_export($decoded->success, true) : 'NOT SET'));
+            
             $errormessage = isset($decoded->errors[0]->message) 
                 ? $decoded->errors[0]->message 
                 : 'API returned success=false';
