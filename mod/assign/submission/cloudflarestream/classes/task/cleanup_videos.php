@@ -149,23 +149,35 @@ class cleanup_videos extends \core\task\scheduled_task {
 
             try {
                 // Try to delete from Cloudflare
+                mtrace("Cloudflare Stream cleanup: Attempting to delete {$upload->video_uid} from Cloudflare...");
                 $cloudflare->delete_video($upload->video_uid);
                 $deletedcount++;
-                mtrace("Cloudflare Stream cleanup: Deleted stuck upload {$upload->video_uid} from Cloudflare");
+                mtrace("Cloudflare Stream cleanup: ✓ Successfully deleted {$upload->video_uid} from Cloudflare");
 
             } catch (cloudflare_video_not_found_exception $e) {
                 // Video doesn't exist in Cloudflare (already deleted or never created)
                 $notfoundcount++;
-                mtrace("Cloudflare Stream cleanup: Stuck upload {$upload->video_uid} not found in Cloudflare");
+                mtrace("Cloudflare Stream cleanup: ✓ Video {$upload->video_uid} not found in Cloudflare (already deleted)");
 
             } catch (cloudflare_api_exception $e) {
                 // API error - log and continue
                 $failedcount++;
-                mtrace("Cloudflare Stream cleanup: ERROR - Failed to delete {$upload->video_uid}: " . $e->getMessage());
+                mtrace("Cloudflare Stream cleanup: ✗ ERROR - Failed to delete {$upload->video_uid}: " . $e->getMessage());
+                error_log("Cloudflare cleanup error for {$upload->video_uid}: " . $e->getMessage());
+            } catch (\Exception $e) {
+                // Unexpected error
+                $failedcount++;
+                mtrace("Cloudflare Stream cleanup: ✗ UNEXPECTED ERROR - Failed to delete {$upload->video_uid}: " . $e->getMessage());
+                error_log("Cloudflare cleanup unexpected error for {$upload->video_uid}: " . $e->getMessage());
             }
 
             // Delete database record regardless of Cloudflare result
-            $DB->delete_records('assignsubmission_cfstream', ['id' => $upload->id]);
+            $db_deleted = $DB->delete_records('assignsubmission_cfstream', ['id' => $upload->id]);
+            if ($db_deleted) {
+                mtrace("Cloudflare Stream cleanup: ✓ Deleted database record ID {$upload->id}");
+            } else {
+                mtrace("Cloudflare Stream cleanup: ✗ WARNING - Failed to delete database record ID {$upload->id}");
+            }
         }
 
         mtrace("Cloudflare Stream cleanup: Stuck uploads cleanup completed. " .

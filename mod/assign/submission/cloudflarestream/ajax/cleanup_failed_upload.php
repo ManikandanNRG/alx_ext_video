@@ -67,27 +67,33 @@ try {
     }
     
     // Delete from database.
-    if ($submissionid > 0) {
-        // Try to delete by submission and video_uid
-        $deleted_from_database = $DB->delete_records('assignsubmission_cfstream', [
-            'submission' => $submissionid,
-            'video_uid' => $videouid
-        ]);
+    if ($submissionid > 0 && !empty($videouid)) {
+        // Try to delete by video_uid first (most reliable)
+        $count = $DB->count_records('assignsubmission_cfstream', ['video_uid' => $videouid]);
+        error_log("Cleanup: Found {$count} database records with video_uid={$videouid}");
         
-        // If not found, try deleting by submission and empty video_uid (old records)
-        if (!$deleted_from_database && !empty($videouid)) {
-            $deleted_from_database = $DB->delete_records('assignsubmission_cfstream', [
-                'submission' => $submissionid,
-                'video_uid' => ''
-            ]);
-            
+        if ($count > 0) {
+            $deleted_from_database = $DB->delete_records('assignsubmission_cfstream', ['video_uid' => $videouid]);
             if ($deleted_from_database) {
-                error_log("Cleaned up failed upload from database (empty video_uid): submission={$submissionid}");
+                error_log("Cleaned up failed upload from database: video_uid={$videouid}, records_deleted={$count}");
+            } else {
+                error_log("WARNING: Failed to delete database records for video_uid={$videouid}");
             }
-        }
-        
-        if ($deleted_from_database) {
-            error_log("Cleaned up failed upload from database: submission={$submissionid}, video_uid={$videouid}");
+        } else {
+            // Try by submission if video_uid not found
+            $count2 = $DB->count_records('assignsubmission_cfstream', ['submission' => $submissionid]);
+            error_log("Cleanup: Found {$count2} database records with submission={$submissionid}");
+            
+            if ($count2 > 0) {
+                $deleted_from_database = $DB->delete_records('assignsubmission_cfstream', ['submission' => $submissionid]);
+                if ($deleted_from_database) {
+                    error_log("Cleaned up failed upload from database: submission={$submissionid}, records_deleted={$count2}");
+                } else {
+                    error_log("WARNING: Failed to delete database records for submission={$submissionid}");
+                }
+            } else {
+                error_log("Cleanup: No database records found for video_uid={$videouid} or submission={$submissionid}");
+            }
         }
     }
     
