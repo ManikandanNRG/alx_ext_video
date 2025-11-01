@@ -28,23 +28,17 @@ use assignsubmission_cloudflarestream\logger;
 $videouid = optional_param('videouid', '', PARAM_ALPHANUMEXT);
 $submissionid = optional_param('submissionid', 0, PARAM_INT);
 
-// Log the request for debugging
-error_log("Cleanup request received: videouid={$videouid}, submissionid={$submissionid}");
-
 // Validate parameters
 if (empty($videouid)) {
-    error_log("Cleanup failed: Missing videouid parameter");
     echo json_encode(['success' => false, 'error' => 'Missing videouid']);
     exit;
 }
 
 // Require login - but DON'T require sesskey for sendBeacon requests
 require_login();
-error_log("After require_login - user logged in successfully");
 
 // Set JSON header.
 header('Content-Type: application/json');
-error_log("After setting JSON header");
 
 $deleted_from_cloudflare = false;
 $deleted_from_database = false;
@@ -58,36 +52,22 @@ if (!empty($apitoken) && !empty($accountid) && !empty($videouid)) {
         $client = new cloudflare_client($apitoken, $accountid);
         $client->delete_video($videouid);
         $deleted_from_cloudflare = true;
-        error_log("Cleaned up failed upload from Cloudflare: {$videouid}");
     } catch (Exception $e) {
         // Video might not exist in Cloudflare (already deleted or never created)
-        error_log('Failed to delete video from Cloudflare: ' . $e->getMessage());
+        // This is OK - continue with database cleanup
     }
 }
 
 // Delete from database - ALWAYS run this regardless of Cloudflare result
-error_log("Attempting database cleanup: submissionid={$submissionid}, videouid={$videouid}");
-
 if ($submissionid > 0 && !empty($videouid)) {
     try {
-        // Delete by video_uid
-        $count = $DB->count_records('assignsubmission_cfstream', ['video_uid' => $videouid]);
-        error_log("Found {$count} database records with video_uid={$videouid}");
-        
-        if ($count > 0) {
-            $deleted_from_database = $DB->delete_records('assignsubmission_cfstream', ['video_uid' => $videouid]);
-            error_log("Database deletion result: " . ($deleted_from_database ? 'SUCCESS' : 'FAILED'));
-        } else {
-            error_log("No database records found for video_uid={$videouid}");
-        }
+        $DB->delete_records('assignsubmission_cfstream', ['video_uid' => $videouid]);
+        $deleted_from_database = true;
     } catch (Exception $e) {
-        error_log("Database deletion exception: " . $e->getMessage());
+        // Log error but continue
+        error_log("Database cleanup error for {$videouid}: " . $e->getMessage());
     }
-} else {
-    error_log("Invalid parameters: submissionid={$submissionid}, videouid={$videouid}");
 }
-
-error_log("Cleanup completed: cloudflare={$deleted_from_cloudflare}, database={$deleted_from_database}");
 
 echo json_encode([
     'success' => true,
