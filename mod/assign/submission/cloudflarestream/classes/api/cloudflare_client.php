@@ -120,7 +120,7 @@ class cloudflare_client {
      * @return object Object containing 'uploadURL' and 'uid' properties
      * @throws cloudflare_api_exception If the API request fails
      */
-    public function get_direct_upload_url($maxdurationseconds = 21600) {
+    public function get_direct_upload_url($maxdurationseconds = 1800) {
         // Validate input parameters.
         validator::validate_duration($maxdurationseconds);
         
