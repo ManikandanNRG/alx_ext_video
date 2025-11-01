@@ -57,6 +57,34 @@ define(['jquery'], function ($) {
             this.currentXHR = null;
             this.retryCount = 0;
             this.maxRetries = 3;
+            this.uploadData = null; // Store upload data for cleanup
+            
+            // Register beforeunload handler for cleanup on page navigation
+            this.registerBeforeUnloadHandler();
+        }
+        
+        /**
+         * Register handler to cleanup on page unload/navigation.
+         * This catches: Cancel button, browser close, tab close, back button, etc.
+         */
+        registerBeforeUnloadHandler() {
+            window.addEventListener('beforeunload', (event) => {
+                // Only cleanup if upload is in progress and we have upload data
+                if (this.uploadInProgress && this.uploadData && this.uploadData.uid) {
+                    console.log('Page unloading during upload, sending cleanup beacon for: ' + this.uploadData.uid);
+                    
+                    // Use sendBeacon for reliable delivery during page unload
+                    const url = M.cfg.wwwroot + '/mod/assign/submission/cloudflarestream/ajax/cleanup_failed_upload.php';
+                    const formData = new FormData();
+                    formData.append('videouid', this.uploadData.uid);
+                    formData.append('submissionid', this.uploadData.submissionid);
+                    formData.append('sesskey', M.cfg.sesskey);
+                    
+                    // sendBeacon is specifically designed for this use case
+                    // It sends data reliably even when page is unloading
+                    navigator.sendBeacon(url, formData);
+                }
+            });
         }
 
         /**
@@ -229,6 +257,7 @@ define(['jquery'], function ($) {
 
                 // Request upload URL from Moodle
                 uploadData = await this.requestUploadUrl(file);
+                this.uploadData = uploadData; // Store for beforeunload handler
 
                 // Upload file directly to Cloudflare
                 await this.uploadToCloudflare(file, uploadData);
@@ -238,14 +267,22 @@ define(['jquery'], function ($) {
                 this.updateProgress(100, 'Finalizing upload...');
                 await this.confirmUploadWithRetry(uploadData.uid, uploadData.submissionid);
 
+                // Upload succeeded - clear uploadData so beforeunload doesn't cleanup
+                this.uploadData = null;
+                this.uploadInProgress = false;
+                
                 // Show success message
                 this.showSuccess();
 
             } catch (error) {
-                // TASK 7 PHASE 1: Upload failed - clean up the dummy entry
+                // Upload failed - clean up the dummy entry
+                this.uploadInProgress = false;
+                
                 if (uploadData && uploadData.uid) {
                     console.log('Upload failed, cleaning up video: ' + uploadData.uid);
                     await this.cleanupFailedUpload(uploadData.uid, uploadData.submissionid);
+                    // Clear uploadData after cleanup
+                    this.uploadData = null;
                 }
                 
                 this.handleError(error);
