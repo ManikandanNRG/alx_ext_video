@@ -239,6 +239,7 @@ define(['jquery'], function ($) {
 
         /**
          * Start the upload process with automatic cleanup on failure.
+         * Uses hybrid approach: direct upload for <200MB, TUS for >=200MB.
          *
          * @param {File} file The file to upload
          */
@@ -248,40 +249,44 @@ define(['jquery'], function ($) {
                 return;
             }
 
-            let uploadData = null; // Store upload data for cleanup
+            let uploadData = null;
+            const DIRECT_UPLOAD_LIMIT = 200 * 1024 * 1024; // 200MB
 
             try {
                 this.uploadInProgress = true;
                 this.showProgress();
                 this.updateProgress(0);
 
-                // Request upload URL from Moodle
-                uploadData = await this.requestUploadUrl(file);
-                this.uploadData = uploadData; // Store for beforeunload handler
+                // Choose upload method based on file size
+                if (file.size < DIRECT_UPLOAD_LIMIT) {
+                    // Small file: Use direct upload (existing method)
+                    console.log('Using direct upload for ' + this.formatFileSize(file.size) + ' file');
+                    uploadData = await this.requestUploadUrl(file);
+                    this.uploadData = uploadData;
+                    await this.uploadToCloudflare(file, uploadData);
+                } else {
+                    // Large file: Use TUS resumable upload
+                    console.log('Using TUS upload for ' + this.formatFileSize(file.size) + ' file');
+                    uploadData = await this.createTusSession(file);
+                    this.uploadData = uploadData;
+                    await this.uploadViaTus(file, uploadData);
+                }
 
-                // Upload file directly to Cloudflare
-                await this.uploadToCloudflare(file, uploadData);
-
-                // Confirm upload with retry - checks Cloudflare status multiple times
-                // This handles both fast (small files) and slow (large files) processing
+                // Confirm upload
                 this.updateProgress(100, 'Finalizing upload...');
                 await this.confirmUploadWithRetry(uploadData.uid, uploadData.submissionid);
 
-                // Upload succeeded - clear uploadData so beforeunload doesn't cleanup
+                // Success
                 this.uploadData = null;
                 this.uploadInProgress = false;
-                
-                // Show success message
                 this.showSuccess();
 
             } catch (error) {
-                // Upload failed - clean up the dummy entry
                 this.uploadInProgress = false;
                 
                 if (uploadData && uploadData.uid) {
                     console.log('Upload failed, cleaning up video: ' + uploadData.uid);
                     await this.cleanupFailedUpload(uploadData.uid, uploadData.submissionid);
-                    // Clear uploadData after cleanup
                     this.uploadData = null;
                 }
                 
@@ -520,6 +525,239 @@ define(['jquery'], function ($) {
                     error.canRetry = true;
                     reject(error);
                 });
+            });
+        }
+
+        /**
+         * Create TUS upload session directly with Cloudflare.
+         * Gets credentials from backend, then makes TUS request to Cloudflare.
+         *
+         * @param {File} file The file to upload
+         * @return {Promise<Object>} Upload data with upload_url, uid, submissionid
+         */
+        async createTusSession(file) {
+            return new Promise((resolve, reject) => {
+                // Get Cloudflare credentials from backend
+                $.ajax({
+                    url: M.cfg.wwwroot + '/mod/assign/submission/cloudflarestream/ajax/get_tus_credentials.php',
+                    method: 'POST',
+                    data: {
+                        assignmentid: this.assignmentId,
+                        sesskey: M.cfg.sesskey
+                    },
+                    dataType: 'json'
+                }).done((credentials) => {
+                    if (!credentials.success) {
+                        reject(new Error(credentials.error || 'Failed to get credentials'));
+                        return;
+                    }
+                    
+                    // Create TUS session directly with Cloudflare
+                    const xhr = new XMLHttpRequest();
+                    const endpoint = `https://api.cloudflare.com/client/v4/accounts/${credentials.account_id}/stream`;
+                    
+                    xhr.open('POST', endpoint);
+                    xhr.setRequestHeader('Authorization', 'Bearer ' + credentials.api_token);
+                    xhr.setRequestHeader('Tus-Resumable', '1.0.0');
+                    xhr.setRequestHeader('Upload-Length', file.size.toString());
+                    xhr.setRequestHeader('Upload-Metadata', 'name ' + btoa(file.name));
+                    
+                    xhr.onload = () => {
+                        if (xhr.status === 201) {
+                            const uploadUrl = xhr.getResponseHeader('Location');
+                            
+                            // ✅ CORRECT: Get UID from stream-media-id header
+                            let uid = xhr.getResponseHeader('stream-media-id');
+                            
+                            if (!uid) {
+                                // ⚠️ FALLBACK: Parse URL if header missing
+                                console.warn('stream-media-id header missing, falling back to URL parsing');
+                                uid = this.extractUidFromUrl(uploadUrl);
+                            }
+                            
+                            console.log('✅ TUS session created:', {
+                                uid: uid,
+                                uploadUrl: uploadUrl,
+                                method: xhr.getResponseHeader('stream-media-id') ? 'header' : 'url-parsing'
+                            });
+                            
+                            // Save to database
+                            this.saveTusSessionToDatabase(uid, credentials.submissionid).then(() => {
+                                resolve({
+                                    upload_url: uploadUrl,
+                                    uid: uid,
+                                    submissionid: credentials.submissionid
+                                });
+                            }).catch((error) => {
+                                reject(new Error('Failed to save TUS session: ' + error.message));
+                            });
+                        } else {
+                            reject(new Error('TUS session creation failed: ' + xhr.status));
+                        }
+                    };
+                    
+                    xhr.onerror = () => {
+                        reject(new Error('Network error during TUS session creation'));
+                    };
+                    
+                    xhr.send();
+                    
+                }).fail(() => {
+                    reject(new Error('Failed to get Cloudflare credentials'));
+                });
+            });
+        }
+
+        /**
+         * Extract UID from URL (fallback method if stream-media-id header missing).
+         *
+         * @param {string} url TUS upload URL
+         * @return {string} Video UID
+         */
+        extractUidFromUrl(url) {
+            try {
+                const pathParts = new URL(url).pathname.split('/').filter(p => p.length > 0);
+                const mediaIndex = pathParts.indexOf('media');
+                
+                if (mediaIndex === -1 || !pathParts[mediaIndex + 1]) {
+                    throw new Error('Cannot find media segment in URL');
+                }
+                
+                let uid = pathParts[mediaIndex + 1].replace(/_+$/, '');
+                
+                if (!/^[a-zA-Z0-9]+$/.test(uid)) {
+                    throw new Error('Invalid UID format: ' + uid);
+                }
+                
+                return uid;
+            } catch (error) {
+                throw new Error('Failed to extract UID from URL: ' + url + ' - ' + error.message);
+            }
+        }
+
+        /**
+         * Save TUS session to database.
+         *
+         * @param {string} uid Video UID
+         * @param {number} submissionId Submission ID
+         * @return {Promise<void>}
+         */
+        async saveTusSessionToDatabase(uid, submissionId) {
+            return new Promise((resolve, reject) => {
+                $.ajax({
+                    url: M.cfg.wwwroot + '/mod/assign/submission/cloudflarestream/ajax/save_tus_session.php',
+                    method: 'POST',
+                    data: {
+                        videouid: uid,
+                        submissionid: submissionId,
+                        sesskey: M.cfg.sesskey
+                    },
+                    dataType: 'json'
+                }).done((data) => {
+                    if (data.success) {
+                        resolve();
+                    } else {
+                        reject(new Error(data.error || 'Failed to save session'));
+                    }
+                }).fail(() => {
+                    reject(new Error('Network error while saving session'));
+                });
+            });
+        }
+
+        /**
+         * Upload file using TUS resumable upload protocol.
+         *
+         * @param {File} file The file to upload
+         * @param {Object} uploadData Upload data (contains upload_url and uid)
+         * @return {Promise<void>}
+         */
+        async uploadViaTus(file, uploadData) {
+            const CHUNK_SIZE = 52428800; // 50MB (recommended by Cloudflare)
+            let offset = 0;
+
+            while (offset < file.size) {
+                // Read chunk
+                const chunkEnd = Math.min(offset + CHUNK_SIZE, file.size);
+                const chunk = file.slice(offset, chunkEnd);
+                const chunkData = await this.readChunkAsArrayBuffer(chunk);
+
+                // Upload chunk
+                const newOffset = await this.uploadTusChunk(uploadData.upload_url, chunkData, offset);
+
+                // Update progress
+                offset = newOffset;
+                const percentage = Math.round((offset / file.size) * 100);
+                const uploadedMB = (offset / (1024 * 1024)).toFixed(1);
+                const totalMB = (file.size / (1024 * 1024)).toFixed(1);
+                this.updateProgress(percentage, uploadedMB + 'MB / ' + totalMB + 'MB');
+            }
+        }
+
+        /**
+         * Read file chunk as ArrayBuffer.
+         *
+         * @param {Blob} chunk File chunk
+         * @return {Promise<ArrayBuffer>} Chunk data
+         */
+        readChunkAsArrayBuffer(chunk) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = () => reject(reader.error);
+                reader.readAsArrayBuffer(chunk);
+            });
+        }
+
+        /**
+         * Upload a single TUS chunk via PHP proxy.
+         * PHP forwards the chunk to Cloudflare to avoid CORS issues.
+         *
+         * @param {string} uploadUrl TUS upload URL from Cloudflare
+         * @param {ArrayBuffer} chunkData Chunk data
+         * @param {number} offset Current byte offset
+         * @return {Promise<number>} New offset after upload
+         */
+        async uploadTusChunk(uploadUrl, chunkData, offset) {
+            return new Promise((resolve, reject) => {
+                const xhr = new XMLHttpRequest();
+
+                // Build URL with parameters
+                const url = M.cfg.wwwroot + '/mod/assign/submission/cloudflarestream/ajax/upload_tus_chunk.php' +
+                    '?uploadurl=' + encodeURIComponent(uploadUrl) +
+                    '&offset=' + offset +
+                    '&sesskey=' + M.cfg.sesskey;
+
+                xhr.open('POST', url);
+                xhr.setRequestHeader('Content-Type', 'application/octet-stream');
+
+                xhr.onload = () => {
+                    if (xhr.status === 200) {
+                        try {
+                            const response = JSON.parse(xhr.responseText);
+                            if (response.success) {
+                                resolve(response.offset);
+                            } else {
+                                reject(new Error(response.error || 'Chunk upload failed'));
+                            }
+                        } catch (e) {
+                            reject(new Error('Invalid response from server'));
+                        }
+                    } else {
+                        reject(new Error('TUS chunk upload failed: ' + xhr.status));
+                    }
+                };
+
+                xhr.onerror = () => {
+                    reject(new Error('Network error during TUS chunk upload'));
+                };
+
+                xhr.ontimeout = () => {
+                    reject(new Error('TUS chunk upload timeout'));
+                };
+
+                // Send binary chunk data
+                xhr.send(chunkData);
             });
         }
 

@@ -360,4 +360,203 @@ class cloudflare_client {
 
         return $decoded;
     }
+
+    /**
+     * Create a TUS upload session for resumable uploads.
+     * Used for files larger than 200MB (up to 30GB).
+     *
+     * @param int $filesize File size in bytes
+     * @param string $filename Original filename
+     * @param int $maxdurationseconds Maximum video duration in seconds
+     * @return object Object with 'upload_url' and 'uid' properties
+     * @throws cloudflare_api_exception If the API request fails
+     */
+    public function create_tus_upload($filesize, $filename, $maxdurationseconds = 1800) {
+        // Validate input parameters.
+        validator::validate_duration($maxdurationseconds);
+        
+        if (!is_numeric($filesize) || $filesize <= 0) {
+            throw new cloudflare_api_exception(
+                'invalid_file_size',
+                'File size must be a positive number'
+            );
+        }
+        
+        $endpoint = "/accounts/{$this->accountid}/stream";
+        
+        // Encode filename to base64 for TUS metadata.
+        $metadata = 'name ' . base64_encode($filename);
+        
+        $headers = [
+            'Authorization: Bearer ' . $this->apitoken,
+            'Tus-Resumable: 1.0.0',
+            'Upload-Length: ' . $filesize,
+            'Upload-Metadata: ' . $metadata
+        ];
+        
+        // Make TUS request.
+        $response = $this->make_tus_request('POST', $this->baseurl . $endpoint, null, $headers);
+        
+        // Extract upload URL from Location header.
+        if (!isset($response['headers']['Location'])) {
+            throw new cloudflare_api_exception(
+                'tus_no_location',
+                'TUS response missing Location header'
+            );
+        }
+        
+        $uploadurl = $response['headers']['Location'];
+        
+        // Get UID from stream-media-id header (official Cloudflare method).
+        if (isset($response['headers']['stream-media-id'])) {
+            $uid = $response['headers']['stream-media-id'];
+            
+            // Validate UID.
+            if (empty($uid) || !preg_match('/^[a-zA-Z0-9]+$/', $uid)) {
+                throw new cloudflare_api_exception(
+                    'tus_invalid_uid',
+                    'Invalid UID from stream-media-id header: ' . $uid
+                );
+            }
+            
+            logger::log_info('TUS session created', [
+                'uid' => $uid,
+                'upload_url' => $uploadurl,
+                'method' => 'stream-media-id header'
+            ]);
+            
+        } else {
+            // Fallback: Parse URL if header missing (not recommended by Cloudflare).
+            logger::log_warning('stream-media-id header missing, falling back to URL parsing');
+            $uid = $this->extract_uid_from_tus_url($uploadurl);
+        }
+        
+        return (object)[
+            'upload_url' => $uploadurl,
+            'uid' => $uid
+        ];
+    }
+
+    /**
+     * Extract video UID from TUS upload URL (fallback method).
+     * Official method is to use stream-media-id header.
+     *
+     * @param string $url TUS upload URL
+     * @return string Video UID
+     * @throws cloudflare_api_exception If UID cannot be extracted
+     */
+    private function extract_uid_from_tus_url($url) {
+        // Parse URL.
+        $parts = parse_url($url);
+        if (!isset($parts['path'])) {
+            throw new cloudflare_api_exception(
+                'tus_invalid_url',
+                'Cannot parse TUS URL: ' . $url
+            );
+        }
+        
+        // Split path into segments.
+        $pathsegments = explode('/', trim($parts['path'], '/'));
+        
+        // Find 'media' segment and get the next segment (the UID).
+        $mediaindex = array_search('media', $pathsegments);
+        if ($mediaindex === false || !isset($pathsegments[$mediaindex + 1])) {
+            throw new cloudflare_api_exception(
+                'tus_invalid_url',
+                'Cannot find media segment in TUS URL: ' . $url
+            );
+        }
+        
+        $uid = $pathsegments[$mediaindex + 1];
+        
+        // Remove trailing underscores (Cloudflare sometimes adds these).
+        $uid = rtrim($uid, '_');
+        
+        // Validate UID format.
+        if (empty($uid) || !preg_match('/^[a-zA-Z0-9]+$/', $uid)) {
+            throw new cloudflare_api_exception(
+                'tus_invalid_uid',
+                'Extracted invalid UID from TUS URL: ' . $uid . ' (URL: ' . $url . ')'
+            );
+        }
+        
+        return $uid;
+    }
+
+    /**
+     * Make TUS-specific HTTP request.
+     * Returns both headers and body for TUS protocol.
+     *
+     * @param string $method HTTP method
+     * @param string $url Full URL
+     * @param string|null $data Request body
+     * @param array $headers HTTP headers
+     * @return array Array with 'headers', 'body', and 'status'
+     * @throws cloudflare_api_exception If request fails
+     */
+    private function make_tus_request($method, $url, $data = null, $headers = []) {
+        $ch = curl_init();
+        curl_setopt($ch, CURLOPT_URL, $url);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_HEADER, true); // Include headers in response.
+        curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+        curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $method);
+        
+        if ($data !== null) {
+            curl_setopt($ch, CURLOPT_POSTFIELDS, $data);
+        }
+        
+        $response = curl_exec($ch);
+        $httpcode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $headersize = curl_getinfo($ch, CURLINFO_HEADER_SIZE);
+        $curlerror = curl_error($ch);
+        curl_close($ch);
+        
+        // Handle cURL errors.
+        if ($response === false) {
+            throw new cloudflare_api_exception(
+                'cloudflare_network_error',
+                'cURL error: ' . $curlerror
+            );
+        }
+        
+        // Parse headers and body.
+        $headertext = substr($response, 0, $headersize);
+        $body = substr($response, $headersize);
+        $parsedheaders = $this->parse_http_headers($headertext);
+        
+        // Check for errors.
+        if ($httpcode >= 400) {
+            throw new cloudflare_api_exception(
+                'tus_upload_failed',
+                "TUS request failed with HTTP {$httpcode}"
+            );
+        }
+        
+        return [
+            'headers' => $parsedheaders,
+            'body' => $body,
+            'status' => $httpcode
+        ];
+    }
+
+    /**
+     * Parse HTTP headers into associative array.
+     *
+     * @param string $headertext Raw header text
+     * @return array Parsed headers
+     */
+    private function parse_http_headers($headertext) {
+        $headers = [];
+        $lines = explode("\r\n", $headertext);
+        
+        foreach ($lines as $line) {
+            if (strpos($line, ':') !== false) {
+                list($key, $value) = explode(':', $line, 2);
+                $headers[trim($key)] = trim($value);
+            }
+        }
+        
+        return $headers;
+    }
 }
