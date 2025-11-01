@@ -144,39 +144,22 @@ class validator {
      * @throws validation_exception If video UID is invalid
      */
     public static function validate_video_uid($videouid) {
-        // DEBUG: Log the validation process
-        error_log('=== VIDEO UID VALIDATION DEBUG ===');
-        error_log('Original UID: ' . var_export($videouid, true));
-        error_log('Is empty check: ' . (empty($videouid) ? 'TRUE' : 'FALSE'));
-        
         if (empty($videouid)) {
-            error_log('VALIDATION FAILED: UID is empty');
             throw new validation_exception('missing_video_uid', 'Video UID is required');
         }
         
         // Sanitize the video UID
         $cleaned_uid = clean_param($videouid, PARAM_ALPHANUMEXT);
-        error_log('After clean_param: ' . var_export($cleaned_uid, true));
-        error_log('Length after cleaning: ' . strlen($cleaned_uid));
         
         if (strlen($cleaned_uid) > self::MAX_VIDEO_UID_LENGTH) {
-            error_log('VALIDATION FAILED: UID too long');
             throw new validation_exception('video_uid_too_long', 
                 'Video UID exceeds maximum length of ' . self::MAX_VIDEO_UID_LENGTH . ' characters');
         }
         
-        $pattern_match = preg_match(self::VIDEO_UID_PATTERN, $cleaned_uid);
-        error_log('Pattern match result: ' . ($pattern_match ? 'TRUE' : 'FALSE'));
-        error_log('Pattern: ' . self::VIDEO_UID_PATTERN);
-        
-        if (!$pattern_match) {
-            error_log('VALIDATION FAILED: Pattern mismatch');
+        if (!preg_match(self::VIDEO_UID_PATTERN, $cleaned_uid)) {
             throw new validation_exception('invalid_video_uid_format', 
                 'Video UID contains invalid characters');
         }
-        
-        error_log('VALIDATION SUCCESS: UID is valid');
-        error_log('=================================');
         
         return $cleaned_uid;
     }
