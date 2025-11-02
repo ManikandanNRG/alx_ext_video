@@ -529,138 +529,36 @@ define(['jquery'], function ($) {
         }
 
         /**
-         * Create TUS upload session directly with Cloudflare.
-         * Gets credentials from backend, then makes TUS request to Cloudflare.
+         * Create TUS upload session via PHP.
+         * PHP handles all Cloudflare communication.
          *
          * @param {File} file The file to upload
-         * @return {Promise<Object>} Upload data with upload_url, uid, submissionid
+         * @return {Promise<Object>} Upload data with uid and submissionid
          */
         async createTusSession(file) {
             return new Promise((resolve, reject) => {
-                // Get Cloudflare credentials from backend
                 $.ajax({
-                    url: M.cfg.wwwroot + '/mod/assign/submission/cloudflarestream/ajax/get_tus_credentials.php',
+                    url: M.cfg.wwwroot + '/mod/assign/submission/cloudflarestream/ajax/upload_tus.php',
                     method: 'POST',
                     data: {
+                        action: 'create',
                         assignmentid: this.assignmentId,
-                        sesskey: M.cfg.sesskey
-                    },
-                    dataType: 'json'
-                }).done((credentials) => {
-                    if (!credentials.success) {
-                        reject(new Error(credentials.error || 'Failed to get credentials'));
-                        return;
-                    }
-                    
-                    // Create TUS session directly with Cloudflare
-                    const xhr = new XMLHttpRequest();
-                    const endpoint = `https://api.cloudflare.com/client/v4/accounts/${credentials.account_id}/stream`;
-                    
-                    xhr.open('POST', endpoint);
-                    xhr.setRequestHeader('Authorization', 'Bearer ' + credentials.api_token);
-                    xhr.setRequestHeader('Tus-Resumable', '1.0.0');
-                    xhr.setRequestHeader('Upload-Length', file.size.toString());
-                    xhr.setRequestHeader('Upload-Metadata', 'name ' + btoa(file.name));
-                    
-                    xhr.onload = () => {
-                        if (xhr.status === 201) {
-                            const uploadUrl = xhr.getResponseHeader('Location');
-                            
-                            // ✅ CORRECT: Get UID from stream-media-id header
-                            let uid = xhr.getResponseHeader('stream-media-id');
-                            
-                            if (!uid) {
-                                // ⚠️ FALLBACK: Parse URL if header missing
-                                console.warn('stream-media-id header missing, falling back to URL parsing');
-                                uid = this.extractUidFromUrl(uploadUrl);
-                            }
-                            
-                            console.log('✅ TUS session created:', {
-                                uid: uid,
-                                uploadUrl: uploadUrl,
-                                method: xhr.getResponseHeader('stream-media-id') ? 'header' : 'url-parsing'
-                            });
-                            
-                            // Save to database
-                            this.saveTusSessionToDatabase(uid, credentials.submissionid).then(() => {
-                                resolve({
-                                    upload_url: uploadUrl,
-                                    uid: uid,
-                                    submissionid: credentials.submissionid
-                                });
-                            }).catch((error) => {
-                                reject(new Error('Failed to save TUS session: ' + error.message));
-                            });
-                        } else {
-                            reject(new Error('TUS session creation failed: ' + xhr.status));
-                        }
-                    };
-                    
-                    xhr.onerror = () => {
-                        reject(new Error('Network error during TUS session creation'));
-                    };
-                    
-                    xhr.send();
-                    
-                }).fail(() => {
-                    reject(new Error('Failed to get Cloudflare credentials'));
-                });
-            });
-        }
-
-        /**
-         * Extract UID from URL (fallback method if stream-media-id header missing).
-         *
-         * @param {string} url TUS upload URL
-         * @return {string} Video UID
-         */
-        extractUidFromUrl(url) {
-            try {
-                const pathParts = new URL(url).pathname.split('/').filter(p => p.length > 0);
-                const mediaIndex = pathParts.indexOf('media');
-                
-                if (mediaIndex === -1 || !pathParts[mediaIndex + 1]) {
-                    throw new Error('Cannot find media segment in URL');
-                }
-                
-                let uid = pathParts[mediaIndex + 1].replace(/_+$/, '');
-                
-                if (!/^[a-zA-Z0-9]+$/.test(uid)) {
-                    throw new Error('Invalid UID format: ' + uid);
-                }
-                
-                return uid;
-            } catch (error) {
-                throw new Error('Failed to extract UID from URL: ' + url + ' - ' + error.message);
-            }
-        }
-
-        /**
-         * Save TUS session to database.
-         *
-         * @param {string} uid Video UID
-         * @param {number} submissionId Submission ID
-         * @return {Promise<void>}
-         */
-        async saveTusSessionToDatabase(uid, submissionId) {
-            return new Promise((resolve, reject) => {
-                $.ajax({
-                    url: M.cfg.wwwroot + '/mod/assign/submission/cloudflarestream/ajax/save_tus_session.php',
-                    method: 'POST',
-                    data: {
-                        videouid: uid,
-                        submissionid: submissionId,
+                        filesize: file.size,
+                        filename: file.name,
                         sesskey: M.cfg.sesskey
                     },
                     dataType: 'json'
                 }).done((data) => {
                     if (data.success) {
-                        resolve();
+                        resolve({
+                            uid: data.uid,
+                            submissionid: data.submissionid
+                        });
                     } else {
-                        reject(new Error(data.error || 'Failed to save session'));
+                        reject(new Error(data.error || 'Failed to create TUS session'));
                     }
                 }).fail(() => {
-                    reject(new Error('Network error while saving session'));
+                    reject(new Error('Network error while creating TUS session'));
                 });
             });
         }
@@ -710,10 +608,10 @@ define(['jquery'], function ($) {
         }
 
         /**
-         * Upload a single TUS chunk via PHP proxy.
-         * PHP forwards the chunk to Cloudflare to avoid CORS issues.
+         * Upload a single TUS chunk via PHP.
+         * PHP handles all Cloudflare communication.
          *
-         * @param {string} uploadUrl TUS upload URL from Cloudflare
+         * @param {string} uploadUrl Not used (kept for compatibility)
          * @param {ArrayBuffer} chunkData Chunk data
          * @param {number} offset Current byte offset
          * @return {Promise<number>} New offset after upload
@@ -722,9 +620,9 @@ define(['jquery'], function ($) {
             return new Promise((resolve, reject) => {
                 const xhr = new XMLHttpRequest();
 
-                // Build URL with parameters
-                const url = M.cfg.wwwroot + '/mod/assign/submission/cloudflarestream/ajax/upload_tus_chunk.php' +
-                    '?uploadurl=' + encodeURIComponent(uploadUrl) +
+                const url = M.cfg.wwwroot + '/mod/assign/submission/cloudflarestream/ajax/upload_tus.php' +
+                    '?action=chunk' +
+                    '&assignmentid=' + this.assignmentId +
                     '&offset=' + offset +
                     '&sesskey=' + M.cfg.sesskey;
 
@@ -756,7 +654,6 @@ define(['jquery'], function ($) {
                     reject(new Error('TUS chunk upload timeout'));
                 };
 
-                // Send binary chunk data
                 xhr.send(chunkData);
             });
         }

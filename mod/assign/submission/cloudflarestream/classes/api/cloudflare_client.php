@@ -397,20 +397,32 @@ class cloudflare_client {
         // Make TUS request.
         $response = $this->make_tus_request('POST', $this->baseurl . $endpoint, null, $headers);
         
-        // Extract upload URL from Location header.
-        if (!isset($response['headers']['Location'])) {
+        // Extract upload URL from Location header (case-insensitive).
+        $uploadurl = null;
+        foreach ($response['headers'] as $key => $value) {
+            if (strtolower($key) === 'location') {
+                $uploadurl = $value;
+                break;
+            }
+        }
+        
+        if (!$uploadurl) {
             throw new cloudflare_api_exception(
                 'tus_no_location',
-                'TUS response missing Location header'
+                'TUS response missing Location header. Headers: ' . print_r($response['headers'], true)
             );
         }
         
-        $uploadurl = $response['headers']['Location'];
+        // Get UID from stream-media-id header (official Cloudflare method, case-insensitive).
+        $uid = null;
+        foreach ($response['headers'] as $key => $value) {
+            if (strtolower($key) === 'stream-media-id') {
+                $uid = $value;
+                break;
+            }
+        }
         
-        // Get UID from stream-media-id header (official Cloudflare method).
-        if (isset($response['headers']['stream-media-id'])) {
-            $uid = $response['headers']['stream-media-id'];
-            
+        if ($uid) {
             // Validate UID.
             if (empty($uid) || !preg_match('/^[a-zA-Z0-9]+$/', $uid)) {
                 throw new cloudflare_api_exception(
@@ -418,16 +430,10 @@ class cloudflare_client {
                     'Invalid UID from stream-media-id header: ' . $uid
                 );
             }
-            
-            logger::log_info('TUS session created', [
-                'uid' => $uid,
-                'upload_url' => $uploadurl,
-                'method' => 'stream-media-id header'
-            ]);
-            
+            // TUS session created successfully with stream-media-id header
         } else {
             // Fallback: Parse URL if header missing (not recommended by Cloudflare).
-            logger::log_warning('stream-media-id header missing, falling back to URL parsing');
+            error_log('Warning: stream-media-id header missing, falling back to URL parsing');
             $uid = $this->extract_uid_from_tus_url($uploadurl);
         }
         
