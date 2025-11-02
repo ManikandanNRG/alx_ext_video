@@ -95,6 +95,7 @@ try {
         echo json_encode([
             'success' => true,
             'uid' => $result->uid,
+            'upload_url' => $result->upload_url,
             'submissionid' => $submission->id
         ]);
         
@@ -106,13 +107,17 @@ try {
         $uploadurl = get_user_preferences('tus_upload_url_' . $USER->id);
         
         if (empty($uploadurl)) {
+            error_log('TUS Error: No upload URL found in preferences for user ' . $USER->id);
             throw new moodle_exception('error', 'assignsubmission_cloudflarestream', '', null, 'TUS session not found');
         }
         
         // Read chunk data from request body.
         $chunkdata = file_get_contents('php://input');
         
+        error_log('TUS Chunk: offset=' . $offset . ', data_length=' . strlen($chunkdata) . ', upload_url=' . substr($uploadurl, 0, 50) . '...');
+        
         if (empty($chunkdata)) {
+            error_log('TUS Error: No chunk data received. Content-Type: ' . ($_SERVER['CONTENT_TYPE'] ?? 'not set'));
             throw new moodle_exception('error', 'assignsubmission_cloudflarestream', '', null, 'No chunk data');
         }
         
@@ -123,6 +128,7 @@ try {
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
         curl_setopt($ch, CURLOPT_HEADER, true);
         curl_setopt($ch, CURLOPT_HTTPHEADER, [
+            'Authorization: Bearer ' . $apitoken,  // CRITICAL: Must include auth!
             'Tus-Resumable: 1.0.0',
             'Upload-Offset: ' . $offset,
             'Content-Type: application/offset+octet-stream',
@@ -133,7 +139,14 @@ try {
         $response = curl_exec($ch);
         $httpcode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         $headersize = curl_getinfo($ch, CURLINFO_HEADER_SIZE);
+        $curlerror = curl_error($ch);
         curl_close($ch);
+        
+        // Log Cloudflare response
+        error_log('Cloudflare TUS Response: HTTP ' . $httpcode);
+        if (!empty($curlerror)) {
+            error_log('cURL Error: ' . $curlerror);
+        }
         
         if ($httpcode === 204) {
             // Parse headers to get new offset.
@@ -152,7 +165,10 @@ try {
                 'offset' => $newoffset
             ]);
         } else {
-            throw new moodle_exception('error', 'assignsubmission_cloudflarestream', '', null, 'Chunk upload failed: HTTP ' . $httpcode);
+            // Log response body for debugging
+            $body = substr($response, $headersize);
+            error_log('Cloudflare Error Body: ' . $body);
+            throw new moodle_exception('error', 'assignsubmission_cloudflarestream', '', null, 'Chunk upload failed: HTTP ' . $httpcode . ' - ' . $body);
         }
         
     } else {
