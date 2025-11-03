@@ -619,7 +619,7 @@
     grid-template-columns: 65% 35%;
     /* Video 65%, Grading 35% */
     gap: 20px;
-    height: calc(100vh - 200px);
+    height: calc(100vh - 250px);
     /* Reduced height to fit in viewport */
     min-height: 500px;
     max-height: 700px;
