@@ -407,9 +407,72 @@ $output = html_writer::link($viewurl, $output, [
 
 ---
 
-## Issue 3: [Placeholder]
+## Issue 3: Grading Page Two-Column Layout Broken
 
-*To be added*
+### Problem Analysis
+
+**What Happened:**
+The two-column layout on the grading page (`action=grader`) stopped working after fixing Issues 1 & 2.
+
+**Current State** (Broken):
+- Shows small "Ready 1.5 MB" link
+- No video player visible
+- Grading form stacked vertically below
+
+**Expected State** (What you had before):
+- Left column (65%): Large video player
+- Right column (35%): Grading form
+- Side-by-side layout
+
+### Root Cause
+
+The `grading_injector.js` is working correctly, BUT there's a conflict:
+
+1. **lib.php line 625-670**: When `$is_grading = true`, it outputs the player HTML directly
+2. **grading_injector.js**: Tries to find `.cloudflarestream-watch-link` or `.cloudflarestream-grading-view`
+3. **Conflict**: The JavaScript can't find the elements because:
+   - In grading context, lib.php outputs `.cloudflarestream-grading-view` 
+   - But the JavaScript looks for `.cloudflarestream-watch-link` first
+   - The detection logic might be failing
+
+### Why It Broke
+
+When I changed the grading table display (Issue 1), I modified how the video link is rendered. The new format:
+```html
+<div class="cfstream-grading-summary">
+  <div class="cfstream-title-line">...</div>
+  <div class="cfstream-meta-line">...</div>
+</div>
+```
+
+The JavaScript is looking for `.cloudflarestream-watch-link` but now it's wrapped in `.cfstream-grading-link`.
+
+### Solution
+
+**Option 1: Update JavaScript selector** (Recommended)
+- Update `grading_injector.js` line 42 to also look for `.cfstream-grading-link`
+- This preserves both old and new formats
+
+**Option 2: Add class to new link**
+- In lib.php, add `cloudflarestream-watch-link` class to the new link
+- Maintains backward compatibility
+
+**Option 3: Simplify detection**
+- Look for any element with `data-video-uid` attribute
+- More robust, less dependent on class names
+
+### Proposed Fix (Option 1)
+
+Change line 42 in `grading_injector.js`:
+```javascript
+// OLD
+var $readyLink = $('.cloudflarestream-watch-link');
+
+// NEW
+var $readyLink = $('.cloudflarestream-watch-link, .cfstream-grading-link');
+```
+
+This will make the JavaScript find the new link format and inject the two-column layout properly.
 
 ---
 

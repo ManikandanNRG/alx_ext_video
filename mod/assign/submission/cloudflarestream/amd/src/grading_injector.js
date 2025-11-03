@@ -39,8 +39,8 @@ define(['jquery', 'core/ajax', 'core/templates'], function($, Ajax, Templates) {
                 return;
             }
             
-            // Find all video players and links
-            var $readyLink = $('.cloudflarestream-watch-link');
+            // Find all video players and links (support both old and new class names)
+            var $readyLink = $('.cloudflarestream-watch-link, .cfstream-grading-link');
             var $existingPlayers = $('.cloudflarestream-grading-view, .cloudflarestream-player-container');
             
             if ($readyLink.length === 0 && $existingPlayers.length === 0) {
