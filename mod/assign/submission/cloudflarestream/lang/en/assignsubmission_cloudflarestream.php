@@ -270,6 +270,10 @@ $string['videonotsupported'] = 'Your browser does not support video playback.';
 $string['videoinformation'] = 'Video Information';
 $string['uploadedby'] = 'Uploaded by';
 $string['uploaddate'] = 'Upload date';
+$string['assignment'] = 'Assignment';
+$string['duration'] = 'Duration';
+$string['size'] = 'File size';
+$string['status'] = 'Status';
 
 // File format information strings (Task 1).
 $string['acceptedformats'] = 'Accepted formats';

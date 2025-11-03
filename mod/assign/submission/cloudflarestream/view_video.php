@@ -79,66 +79,75 @@ $studentname = fullname($student);
 
 echo $OUTPUT->header();
 
-echo html_writer::start_div('cloudflarestream-viewer-container', ['style' => 'max-width: 1200px; margin: 0 auto; padding: 20px;']);
+echo html_writer::start_div('cloudflarestream-viewer-container', ['style' => 'max-width: 100%; margin: 0; padding: 20px;']);
 
 // Video title with icon
-echo html_writer::start_div('mb-4');
+echo html_writer::start_div('mb-3');
 echo html_writer::tag('h2', 
     '<i class="fa fa-video-camera text-primary"></i> ' . s($filename),
-    ['class' => 'mb-3', 'style' => 'color: #333; font-weight: 500;']
+    ['class' => 'mb-0', 'style' => 'color: #333; font-weight: 500; font-size: 24px;']
 );
 echo html_writer::end_div();
 
-// Video information card
-echo html_writer::start_div('cloudflarestream-info-card mb-4', [
-    'style' => 'background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; border-radius: 8px; color: white; box-shadow: 0 4px 6px rgba(0,0,0,0.1);'
-]);
+// Two-column layout container
+echo html_writer::start_div('cfstream-viewer-layout');
+
+// LEFT SIDEBAR (20%) - Video Information
+echo html_writer::start_div('cfstream-viewer-sidebar');
 
 echo html_writer::tag('h4', 
     '<i class="fa fa-info-circle"></i> ' . get_string('videoinformation', 'assignsubmission_cloudflarestream'),
-    ['class' => 'mb-3', 'style' => 'color: white; font-weight: 500;']
+    ['class' => 'mb-3']
 );
 
-echo html_writer::start_div('row');
+// Info items - vertical stack
+echo html_writer::start_div('cfstream-info-items');
 
-// Left column
-echo html_writer::start_div('col-md-6');
-echo html_writer::tag('div', 
-    '<i class="fa fa-user"></i> <strong>' . get_string('uploadedby', 'assignsubmission_cloudflarestream') . ':</strong> ' . s($studentname),
-    ['class' => 'mb-2', 'style' => 'font-size: 14px;']
-);
-echo html_writer::tag('div', 
-    '<i class="fa fa-calendar"></i> <strong>' . get_string('uploaddate', 'assignsubmission_cloudflarestream') . ':</strong> ' . userdate($video->upload_timestamp, get_string('strftimedatetime', 'core_langconfig')),
-    ['class' => 'mb-2', 'style' => 'font-size: 14px;']
-);
-echo html_writer::tag('div', 
-    '<i class="fa fa-book"></i> <strong>' . get_string('assignment', 'core') . ':</strong> ' . s($assignment->name),
-    ['class' => 'mb-2', 'style' => 'font-size: 14px;']
-);
+// Uploaded by
+echo html_writer::start_div('cfstream-info-item');
+echo html_writer::tag('div', '<i class="fa fa-user"></i> ' . get_string('uploadedby', 'assignsubmission_cloudflarestream'), ['class' => 'cfstream-info-label']);
+echo html_writer::tag('div', s($studentname), ['class' => 'cfstream-info-value']);
 echo html_writer::end_div();
 
-// Right column
-echo html_writer::start_div('col-md-6');
+// Upload date
+echo html_writer::start_div('cfstream-info-item');
+echo html_writer::tag('div', '<i class="fa fa-calendar"></i> ' . get_string('uploaddate', 'assignsubmission_cloudflarestream'), ['class' => 'cfstream-info-label']);
+echo html_writer::tag('div', userdate($video->upload_timestamp, get_string('strftimedatetime', 'core_langconfig')), ['class' => 'cfstream-info-value']);
+echo html_writer::end_div();
+
+// Assignment
+echo html_writer::start_div('cfstream-info-item');
+echo html_writer::tag('div', '<i class="fa fa-book"></i> ' . get_string('assignment', 'assignsubmission_cloudflarestream'), ['class' => 'cfstream-info-label']);
+echo html_writer::tag('div', s($assignment->name), ['class' => 'cfstream-info-value']);
+echo html_writer::end_div();
+
+// Duration
 if ($video->duration) {
-    echo html_writer::tag('div', 
-        '<i class="fa fa-clock-o"></i> <strong>' . get_string('duration', 'core') . ':</strong> ' . format_time($video->duration),
-        ['class' => 'mb-2', 'style' => 'font-size: 14px;']
-    );
+    echo html_writer::start_div('cfstream-info-item');
+    echo html_writer::tag('div', '<i class="fa fa-clock-o"></i> ' . get_string('duration', 'assignsubmission_cloudflarestream'), ['class' => 'cfstream-info-label']);
+    echo html_writer::tag('div', format_time($video->duration), ['class' => 'cfstream-info-value']);
+    echo html_writer::end_div();
 }
+
+// File size
 if ($video->file_size) {
-    echo html_writer::tag('div', 
-        '<i class="fa fa-hdd-o"></i> <strong>' . get_string('size', 'core') . ':</strong> ' . display_size($video->file_size),
-        ['class' => 'mb-2', 'style' => 'font-size: 14px;']
-    );
+    echo html_writer::start_div('cfstream-info-item');
+    echo html_writer::tag('div', '<i class="fa fa-hdd-o"></i> ' . get_string('size', 'assignsubmission_cloudflarestream'), ['class' => 'cfstream-info-label']);
+    echo html_writer::tag('div', display_size($video->file_size), ['class' => 'cfstream-info-value']);
+    echo html_writer::end_div();
 }
-echo html_writer::tag('div', 
-    '<i class="fa fa-check-circle"></i> <strong>' . get_string('status', 'core') . ':</strong> ' . get_string('status_ready', 'assignsubmission_cloudflarestream'),
-    ['class' => 'mb-2', 'style' => 'font-size: 14px;']
-);
+
+// Status
+echo html_writer::start_div('cfstream-info-item');
+echo html_writer::tag('div', '<i class="fa fa-check-circle"></i> ' . get_string('status', 'assignsubmission_cloudflarestream'), ['class' => 'cfstream-info-label']);
+echo html_writer::tag('div', get_string('status_ready', 'assignsubmission_cloudflarestream'), ['class' => 'cfstream-info-value cfstream-status-ready']);
 echo html_writer::end_div();
 
-echo html_writer::end_div(); // row
-echo html_writer::end_div(); // info-card
+echo html_writer::end_div(); // info-items
+echo html_writer::end_div(); // sidebar
+
+// RIGHT AREA (80%) - Video Player
+echo html_writer::start_div('cfstream-viewer-player-area');
 
 // Video player container.
 echo html_writer::start_div('cloudflarestream-player-container', [
@@ -153,8 +162,11 @@ echo html_writer::end_div();
 echo html_writer::tag('p', 'Loading video player...', ['style' => 'margin-top: 1rem;']);
 echo html_writer::end_div();
 
-echo html_writer::end_div();
+echo html_writer::end_div(); // player container
 
-echo html_writer::end_div();
+echo html_writer::end_div(); // player area
+echo html_writer::end_div(); // two-column layout
+
+echo html_writer::end_div(); // viewer container
 
 echo $OUTPUT->footer();
