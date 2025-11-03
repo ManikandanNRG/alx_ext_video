@@ -682,20 +682,41 @@ class assign_submission_cloudflarestream extends assign_submission_plugin {
                 ]);
                 
                 $icon = '<i class="fa fa-video-camera text-success" aria-hidden="true"></i>';
-                $output = html_writer::link(
-                    $viewurl,
-                    $icon . ' ' . $statustext,
-                    [
-                        'target' => '_blank',
-                        'title' => get_string('watchvideo', 'assignsubmission_cloudflarestream'),
-                        'class' => 'cloudflarestream-watch-link'
-                    ]
+                
+                // Get filename - use video_uid as fallback if no filename stored
+                $filename = !empty($video->filename) ? $video->filename : 'Video_' . substr($video->video_uid, 0, 8);
+                $truncated_filename = $this->truncate_filename($filename, 25);
+                
+                // Build multi-line display
+                $output = html_writer::start_div('cfstream-grading-summary');
+                
+                // Line 1: Icon + Filename
+                $output .= html_writer::div(
+                    $icon . ' ' . html_writer::span($truncated_filename, 'cfstream-filename'),
+                    'cfstream-title-line'
                 );
                 
-                // Add file size if available.
-                if ($video->file_size) {
-                    $output .= ' (' . display_size($video->file_size) . ')';
+                // Line 2: Status badge + Size
+                $status_badge = '<i class="fa fa-check-circle text-success" aria-hidden="true" style="font-size: 11px;"></i>';
+                $size_text = $video->file_size ? display_size($video->file_size) : '';
+                $meta_content = html_writer::span($status_badge . ' ' . $statustext, 'cfstream-status');
+                if ($size_text) {
+                    $meta_content .= ' • ' . html_writer::span($size_text, 'cfstream-size');
                 }
+                $output .= html_writer::div($meta_content, 'cfstream-meta-line');
+                
+                $output .= html_writer::end_div();
+                
+                // Make entire block clickable
+                $output = html_writer::link(
+                    $viewurl,
+                    $output,
+                    [
+                        'target' => '_blank',
+                        'title' => $filename . ' - ' . get_string('watchvideo', 'assignsubmission_cloudflarestream'),
+                        'class' => 'cfstream-grading-link'
+                    ]
+                );
                 break;
                 
             case 'uploading':
@@ -736,6 +757,31 @@ class assign_submission_cloudflarestream extends assign_submission_plugin {
      */
     public function view_summary_table(stdClass $submission, & $showviewlink) {
         return $this->view_summary($submission, $showviewlink);
+    }
+
+    /**
+     * Truncate filename for display in grading table.
+     *
+     * @param string $filename The filename to truncate
+     * @param int $maxlength Maximum length before truncation
+     * @return string Truncated filename with ellipsis if needed
+     */
+    private function truncate_filename($filename, $maxlength = 25) {
+        if (strlen($filename) <= $maxlength) {
+            return $filename;
+        }
+        
+        // Try to preserve file extension
+        $extension = '';
+        if (preg_match('/\.(mp4|mov|avi|mkv|webm|flv)$/i', $filename, $matches)) {
+            $extension = $matches[0];
+            $filename = substr($filename, 0, -strlen($extension));
+        }
+        
+        // Truncate and add ellipsis
+        $truncated = substr($filename, 0, $maxlength - strlen($extension) - 3) . '...';
+        
+        return $truncated . $extension;
     }
 }
 
