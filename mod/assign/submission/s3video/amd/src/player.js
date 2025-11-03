@@ -13,7 +13,7 @@
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-define(['jquery', 'core/ajax'], function($, Ajax) {
+define(['jquery', 'core/ajax'], function ($, Ajax) {
 
     /**
      * URL expiry buffer in seconds (refresh 1 hour before expiry).
@@ -49,7 +49,7 @@ define(['jquery', 'core/ajax'], function($, Ajax) {
          */
         async init() {
             this.container = $('#' + this.containerId);
-            
+
             if (this.container.length === 0) {
                 // eslint-disable-next-line no-console
                 console.error('Player container not found:', this.containerId);
@@ -110,7 +110,7 @@ define(['jquery', 'core/ajax'], function($, Ajax) {
                     let errorType = 'network_error';
                     let guidance = 'Please check your internet connection and try again.';
                     let canRetry = true;
-                    
+
                     // Try to parse error response.
                     if (jqXHR.responseJSON) {
                         errorMessage = jqXHR.responseJSON.error || errorMessage;
@@ -133,7 +133,7 @@ define(['jquery', 'core/ajax'], function($, Ajax) {
                         guidance = 'This is usually a temporary issue. Wait a few minutes and try again.';
                         canRetry = true;
                     }
-                    
+
                     const error = new Error(errorMessage);
                     error.errorType = errorType;
                     error.guidance = guidance;
@@ -174,7 +174,7 @@ define(['jquery', 'core/ajax'], function($, Ajax) {
                 .attr('type', 'video/mp4');
 
             this.videoElement.append(source);
-            
+
             // Add fallback message
             this.videoElement.append(
                 $('<p>').text('Your browser does not support the video tag.')
@@ -189,7 +189,7 @@ define(['jquery', 'core/ajax'], function($, Ajax) {
             this.videoElement.on('error', () => {
                 const error = this.player.error;
                 let errorMessage = 'Video playback error';
-                
+
                 if (error) {
                     switch (error.code) {
                         case 1: // MEDIA_ERR_ABORTED
@@ -208,7 +208,7 @@ define(['jquery', 'core/ajax'], function($, Ajax) {
                             errorMessage = 'Unknown video error occurred';
                     }
                 }
-                
+
                 this.handleError(new Error(errorMessage));
             });
 
@@ -260,7 +260,7 @@ define(['jquery', 'core/ajax'], function($, Ajax) {
                     // Save current playback position
                     let currentTime = 0;
                     let wasPaused = true;
-                    
+
                     if (this.player) {
                         currentTime = this.player.currentTime();
                         wasPaused = this.player.paused();
@@ -273,14 +273,14 @@ define(['jquery', 'core/ajax'], function($, Ajax) {
                     if (this.player && this.videoElement) {
                         // Update the source element
                         this.videoElement.find('source').attr('src', this.signedUrl);
-                        
+
                         // Reload the video
                         this.player.load();
-                        
+
                         // Restore playback position when metadata is loaded
                         this.videoElement.one('loadedmetadata', () => {
                             this.player.currentTime = currentTime;
-                            
+
                             if (!wasPaused) {
                                 this.player.play();
                             }
@@ -293,19 +293,19 @@ define(['jquery', 'core/ajax'], function($, Ajax) {
                 } catch (error) {
                     // eslint-disable-next-line no-console
                     console.error(`URL refresh attempt ${attempt} failed:`, error);
-                    
+
                     const shouldRetry = this.shouldRetryUrlRefresh(error, attempt, maxRetries);
-                    
+
                     if (shouldRetry.should_retry) {
                         // eslint-disable-next-line no-console
                         console.log(`Retrying URL refresh in ${shouldRetry.delay_ms}ms...`);
-                        
+
                         setTimeout(() => {
                             attemptRefresh();
                         }, shouldRetry.delay_ms);
                     } else {
-                        const errorMessage = error.canRetry === false 
-                            ? error.message 
+                        const errorMessage = error.canRetry === false
+                            ? error.message
                             : 'Video session expired. Please refresh the page.';
                         this.handleError(new Error(errorMessage));
                     }
@@ -351,7 +351,7 @@ define(['jquery', 'core/ajax'], function($, Ajax) {
          */
         showLoading() {
             this.container.empty();
-            
+
             const loadingDiv = $('<div>')
                 .addClass('s3video-loading text-center p-5')
                 .append(
@@ -403,11 +403,11 @@ define(['jquery', 'core/ajax'], function($, Ajax) {
             let guidanceDiv = null;
             if (guidance) {
                 guidanceDiv = $('<div>').addClass('mt-3');
-                
+
                 const guidanceTitle = $('<p>')
                     .addClass('mb-2 font-weight-bold')
                     .text('What to do:');
-                
+
                 const guidanceText = $('<p>')
                     .addClass('mb-2')
                     .text(guidance);
@@ -481,7 +481,7 @@ define(['jquery', 'core/ajax'], function($, Ajax) {
          * @param {string} containerId The container element ID
          * @return {S3VideoPlayer} The player instance
          */
-        init: function(s3Key, submissionId, containerId) {
+        init: function (s3Key, submissionId, containerId) {
             const player = new S3VideoPlayer(s3Key, submissionId, containerId);
             player.init();
             return player;

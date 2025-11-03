@@ -217,9 +217,49 @@ $output = html_writer::link($viewurl, $output, [
 
 ---
 
-## Issue 2: [Placeholder for next UI issue]
+## Issue 2: Video View Page - Information Display
 
-*To be added when you provide the next issue*
+### Current State (Screenshot Analysis)
+
+**Location**: `/mod/assign/submission/cloudflarestream/view_video.php` (opens in new tab)
+
+**Current Problems**:
+1. Title shows "Cloudflare Stream" instead of video filename
+2. Language string "[[duration]]" not working - shows raw text
+3. Metadata box style is plain and not visually appealing
+4. Limited information - only shows duration and size
+5. No context about who uploaded, when, assignment name
+
+### Proposed Solution
+
+**New Layout**:
+```
+┌─────────────────────────────────────────────────────┐
+│ 🎥 BIG_Video.mp4                                    │  ← Video filename as title
+│                                                      │
+│ ┌─────────────────────────────────────────────────┐│
+│ │ 📊 Video Information                            ││  ← Info card
+│ │ • Uploaded by: John Doe                         ││
+│ │ • Upload date: Nov 2, 2025 10:35 AM            ││
+│ │ • Duration: 2 hours 25 mins                     ││
+│ │ • File size: 1.7 GB                             ││
+│ │ • Assignment: Video Assignment                  ││
+│ └─────────────────────────────────────────────────┘│
+│                                                      │
+│ [Video Player - Don't Touch]                        │
+│                                                      │
+└─────────────────────────────────────────────────────┘
+```
+
+### Implementation Plan
+
+**Changes Needed**:
+1. Get video filename from Cloudflare metadata
+2. Get student name from submission
+3. Format upload timestamp properly
+4. Create styled info card
+5. Fix language strings
+6. Improve overall layout
 
 ---
 
@@ -234,6 +274,7 @@ $output = html_writer::link($viewurl, $output, [
 | Issue | Status | Files Modified | Tested | Deployed |
 |-------|--------|----------------|--------|----------|
 | Issue 1: Grading Table Display | ✅ Implemented | lib.php, styles.css | ⏳ Pending | ❌ |
+| Issue 2: Video View Page | ✅ Implemented | view_video.php, lang file | ⏳ Pending | ❌ |
 
 ---
 
