@@ -683,8 +683,28 @@ class assign_submission_cloudflarestream extends assign_submission_plugin {
                 
                 $icon = '<i class="fa fa-video-camera text-success" aria-hidden="true"></i>';
                 
-                // Get filename - use video_uid as fallback if no filename stored
-                $filename = !empty($video->filename) ? $video->filename : 'Video_' . substr($video->video_uid, 0, 8);
+                // Get filename from Cloudflare metadata or use UID as fallback
+                $filename = 'Video_' . substr($video->video_uid, 0, 8); // Default fallback
+                
+                // Try to get real filename from Cloudflare metadata
+                try {
+                    $apitoken = get_config('assignsubmission_cloudflarestream', 'apitoken');
+                    $accountid = get_config('assignsubmission_cloudflarestream', 'accountid');
+                    
+                    if (!empty($apitoken) && !empty($accountid)) {
+                        require_once($CFG->dirroot . '/mod/assign/submission/cloudflarestream/classes/api/cloudflare_client.php');
+                        $client = new \assignsubmission_cloudflarestream\api\cloudflare_client($apitoken, $accountid);
+                        $details = $client->get_video_details($video->video_uid);
+                        
+                        // Get filename from metadata
+                        if (isset($details->meta->name) && !empty($details->meta->name)) {
+                            $filename = $details->meta->name;
+                        }
+                    }
+                } catch (Exception $e) {
+                    // Silently fail, use fallback filename
+                }
+                
                 $truncated_filename = $this->truncate_filename($filename, 25);
                 
                 // Build multi-line display
@@ -697,7 +717,7 @@ class assign_submission_cloudflarestream extends assign_submission_plugin {
                 );
                 
                 // Line 2: Status badge + Size
-                $status_badge = '<i class="fa fa-check-circle text-success" aria-hidden="true" style="font-size: 11px;"></i>';
+                $status_badge = '<i class="fa fa-check-circle" aria-hidden="true" style="font-size: 11px; color: #28a745;"></i>';
                 $size_text = $video->file_size ? display_size($video->file_size) : '';
                 $meta_content = html_writer::span($status_badge . ' ' . $statustext, 'cfstream-status');
                 if ($size_text) {
