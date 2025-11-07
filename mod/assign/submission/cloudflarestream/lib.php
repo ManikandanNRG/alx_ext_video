@@ -38,6 +38,12 @@ class assign_submission_cloudflarestream extends assign_submission_plugin {
     public function get_settings(MoodleQuickForm $mform) {
         global $CFG;
 
+        // HIDDEN: Duplicate "enabled" dropdown removed to avoid confusion
+        // The toggle switch in "Submission types" section (created by Moodle core) is sufficient
+        // Both controls write to the same database location (assign_plugin_config.enabled)
+        // To restore: uncomment the code below
+        
+        /*
         // Default to enabled (1) if not explicitly set
         $defaultenabled = $this->get_config('enabled');
         if ($defaultenabled === false || $defaultenabled === null) {
@@ -49,6 +55,9 @@ class assign_submission_cloudflarestream extends assign_submission_plugin {
         $mform->addHelpButton('assignsubmission_cloudflarestream_enabled',
             'enabled', 'assignsubmission_cloudflarestream');
         $mform->setDefault('assignsubmission_cloudflarestream_enabled', $defaultenabled);
+        */
+        
+        // Future: Add useful per-assignment settings here (e.g., max duration, file size limits)
     }
 
     /**
