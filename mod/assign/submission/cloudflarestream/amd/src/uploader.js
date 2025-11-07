@@ -456,7 +456,9 @@ define(['jquery'], function ($) {
             for (let attempt = 0; attempt < maxAttempts; attempt++) {
                 // Wait before checking (except first attempt which waits 3 seconds)
                 if (attempt > 0) {
-                    this.updateProgress(100, `Processing video... (${attempt}/${maxAttempts})`);
+                    // Show animated dots instead of confusing attempt counter
+                    const dots = '.'.repeat((attempt % 3) + 1);
+                    this.updateProgress(100, `Processing video${dots}`);
                 }
                 await this.sleep(delays[attempt]);
                 
