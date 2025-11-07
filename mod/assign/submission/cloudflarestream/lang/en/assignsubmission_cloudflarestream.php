@@ -27,13 +27,13 @@ $string['max_file_size'] = 'Maximum file size';
 $string['max_file_size_desc'] = 'Maximum video file size that can be uploaded.';
 
 // Upload interface strings.
-$string['uploadvideofile'] = 'Upload video file';
-$string['selectvideo'] = 'Select video';
+$string['uploadvideofile'] = 'Upload file';
+$string['selectvideo'] = 'Select file';
 $string['uploading'] = 'Uploading...';
 $string['uploadprogress'] = 'Upload progress: {$a}%';
 $string['uploadsuccess'] = 'Video uploaded successfully';
 $string['uploadfailed'] = 'Upload failed';
-$string['dragdrop'] = 'Drag and drop video file here or click to select';
+$string['dragdrop'] = 'Drag and drop file here or click to select';
 $string['filesizeexceeded'] = 'File size exceeds maximum allowed size of {$a}';
 $string['invalidfiletype'] = 'Invalid file type. Please upload a video file.';
 $string['retryupload'] = 'Retry upload';
