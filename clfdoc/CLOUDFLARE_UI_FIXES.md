@@ -163,6 +163,77 @@ To restore dropdown, edit `lib.php` and remove the `/*` and `*/` comment markers
 
 ---
 
+---
+
+## ✅ Issue 5: Video Player Doesn't Update When Switching Users
+
+**Status:** FIXED (Updated with better timing)
+
+**Problem:**
+In the grading page with two-column layout (video left, grading form right), when teacher switches users from the dropdown, the grading form updates but the video player still shows the previous student's video.
+
+**Root Cause:**
+1. The `grading_injector.js` only ran once on page load
+2. It didn't detect when the teacher switched to a different user
+3. Even after adding URL monitoring, we were trying to inject the player before Moodle finished loading the new user's content via AJAX
+
+**Solution:**
+Use MutationObserver to watch Moodle's grading panel and inject player only when video content appears.
+
+**Implementation:**
+```javascript
+// Observe Moodle's grading panel for content changes
+observeGradingPanel: function() {
+    var $gradingPanel = $('[data-region="grade-panel"]');
+    
+    var observer = new MutationObserver(function(mutations) {
+        // Check if there's a video link in the new content
+        var $videoLink = $('.cloudflarestream-watch-link, .cfstream-grading-link')
+            .not('.cloudflarestream-two-column-layout .cloudflarestream-watch-link');
+        
+        if ($videoLink.length > 0) {
+            // Remove old layout if exists
+            $('.cloudflarestream-two-column-layout').remove();
+            // Inject new player
+            self.injectPlayer();
+        }
+    });
+    
+    observer.observe($gradingPanel[0], {
+        childList: true,
+        subtree: true
+    });
+}
+```
+
+**How It Works:**
+1. Teacher selects different user from dropdown
+2. Moodle loads new user's content via AJAX into grading panel
+3. MutationObserver detects DOM changes
+4. If video link found, inject two-column layout
+5. If no video link (user hasn't submitted), do nothing - Moodle's normal layout remains
+6. Both video and grading form work correctly for all users
+
+**Key Fix:**
+Following Moodle's pattern - don't force layout changes, only enhance when video exists. This prevents breaking the grading form for users without video submissions.
+
+**Files Changed:**
+- `mod/assign/submission/cloudflarestream/amd/src/grading_injector.js`
+- `mod/assign/submission/cloudflarestream/amd/build/grading_injector.min.js`
+
+**Deployment:**
+```bash
+scp mod/assign/submission/cloudflarestream/amd/src/grading_injector.js ubuntu@dev.aktrea.net:/tmp/
+scp mod/assign/submission/cloudflarestream/amd/build/grading_injector.min.js ubuntu@dev.aktrea.net:/tmp/
+sudo mv /tmp/grading_injector.js /var/www/html/mod/assign/submission/cloudflarestream/amd/src/
+sudo mv /tmp/grading_injector.min.js /var/www/html/mod/assign/submission/cloudflarestream/amd/build/
+sudo chown www-data:www-data /var/www/html/mod/assign/submission/cloudflarestream/amd/src/grading_injector.js
+sudo chown www-data:www-data /var/www/html/mod/assign/submission/cloudflarestream/amd/build/grading_injector.min.js
+sudo -u www-data php /var/www/html/admin/cli/purge_caches.php
+```
+
+---
+
 ## 📋 Future UI Improvements (Not Started)
 
 ### Potential Enhancements:

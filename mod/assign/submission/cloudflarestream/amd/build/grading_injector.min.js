@@ -16,20 +16,170 @@
 define(['jquery', 'core/ajax', 'core/templates'], function($, Ajax, Templates) {
     
     return {
+        processing: false,
+        debounceTimer: null,
+        
         init: function() {
-            // Check if we're on the grading page
+            var self = this;
+            
+            // Only run on individual grading page
+            if (this.isGradingPage()) {
+                // Wait a bit for Moodle to finish loading, then inject
+                setTimeout(function() {
+                    self.injectPlayer();
+                }, 500);
+                
+                // Listen for Moodle's grading panel updates
+                self.observeGradingPanel();
+            }
+        },
+        
+        /**
+         * Check if we're on the grading page
+         */
+        isGradingPage: function() {
             var urlParams = new URLSearchParams(window.location.search);
             var action = urlParams.get('action');
             var rownum = urlParams.get('rownum');
             var userid = urlParams.get('userid');
+            return action === 'grader' && (rownum !== null || userid !== null);
+        },
+        
+        /**
+         * Observe Moodle's grading panel for content changes
+         */
+        observeGradingPanel: function() {
+            var self = this;
             
-            // Only run on individual grading page
-            if (action === 'grader' && (rownum !== null || userid !== null)) {
-                // Wait a bit for Moodle to finish loading, then inject
-                setTimeout(() => {
-                    this.injectPlayer();
-                }, 500);
+            // Find the grading panel that Moodle updates
+            var $gradingPanel = $('[data-region="grade-panel"]');
+            if ($gradingPanel.length === 0) {
+                console.log('Cloudflare Stream: Grading panel not found, skipping observer');
+                return;
             }
+            
+            // Store observer reference
+            this.panelObserver = new MutationObserver(function(mutations) {
+                // Debounce: clear existing timer
+                if (self.debounceTimer) {
+                    clearTimeout(self.debounceTimer);
+                }
+                
+                // Set new timer to process after mutations settle
+                self.debounceTimer = setTimeout(function() {
+                    self.handleContentChange();
+                }, 500); // Wait 500ms after last mutation
+            });
+            
+            // Start observing
+            this.panelObserver.observe($gradingPanel[0], {
+                childList: true,
+                subtree: true
+            });
+            
+            console.log('Cloudflare Stream: Observing grading panel for changes');
+        },
+        
+        /**
+         * Handle content changes in grading panel
+         */
+        handleContentChange: function() {
+            // Prevent concurrent processing
+            if (this.processing) {
+                console.log('Cloudflare Stream: Already processing, skipping...');
+                return;
+            }
+            
+            this.processing = true;
+            
+            // Check current state
+            var $existingLayout = $('.cloudflarestream-two-column-layout');
+            var $videoLink = $('.cloudflarestream-watch-link, .cfstream-grading-link');
+            
+            // Count ALL video links (inside and outside layout)
+            var totalVideoLinks = $videoLink.length;
+            
+            // Filter out links inside existing layout
+            var $newVideoLink = $videoLink.filter(function() {
+                return $(this).closest('.cloudflarestream-two-column-layout').length === 0;
+            });
+            
+            // Case 1: New video found outside layout and no layout exists
+            if ($newVideoLink.length > 0 && $existingLayout.length === 0) {
+                console.log('Cloudflare Stream: New video detected, injecting player...');
+                this.pauseObserver();
+                this.injectPlayer();
+                this.resumeObserver();
+            }
+            // Case 2: No video links at all but layout exists (user switched to non-video submission)
+            else if (totalVideoLinks === 0 && $existingLayout.length > 0) {
+                console.log('Cloudflare Stream: No video in new content, removing two-column layout...');
+                this.pauseObserver();
+                this.restoreMoodleLayout();
+                this.resumeObserver();
+            } else {
+                console.log('Cloudflare Stream: No action needed (layout=' + $existingLayout.length + ', total videos=' + totalVideoLinks + ', new videos=' + $newVideoLink.length + ')');
+            }
+            
+            // Reset processing flag
+            var self = this;
+            setTimeout(function() {
+                self.processing = false;
+            }, 1000);
+        },
+        
+        /**
+         * Pause the observer temporarily
+         */
+        pauseObserver: function() {
+            if (this.panelObserver) {
+                this.panelObserver.disconnect();
+                console.log('Cloudflare Stream: Observer paused');
+            }
+        },
+        
+        /**
+         * Resume the observer
+         */
+        resumeObserver: function() {
+            var self = this;
+            if (this.panelObserver) {
+                setTimeout(function() {
+                    var $gradingPanel = $('[data-region="grade-panel"]');
+                    if ($gradingPanel.length > 0) {
+                        self.panelObserver.observe($gradingPanel[0], {
+                            childList: true,
+                            subtree: true
+                        });
+                        console.log('Cloudflare Stream: Observer resumed');
+                    }
+                }, 1000); // Wait 1 second before resuming
+            }
+        },
+        
+        /**
+         * Restore Moodle's original layout (remove two-column layout)
+         */
+        restoreMoodleLayout: function() {
+            var $layout = $('.cloudflarestream-two-column-layout');
+            if ($layout.length === 0) {
+                return;
+            }
+            
+            // Get the grading content from right column
+            var $rightColumn = $layout.find('.cloudflarestream-right-column');
+            var $gradingContent = $rightColumn.children();
+            
+            // Find the parent container
+            var $container = $layout.parent();
+            
+            // Move grading content back to parent
+            $container.append($gradingContent);
+            
+            // Remove the two-column layout
+            $layout.remove();
+            
+            console.log('Cloudflare Stream: Restored Moodle original layout');
         },
         
         injectPlayer: function() {
