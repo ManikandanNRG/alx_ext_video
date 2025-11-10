@@ -54,7 +54,6 @@ define(['jquery', 'core/ajax', 'core/templates'], function($, Ajax, Templates) {
             // Find the grading panel that Moodle updates
             var $gradingPanel = $('[data-region="grade-panel"]');
             if ($gradingPanel.length === 0) {
-                console.log('Cloudflare Stream: Grading panel not found, skipping observer');
                 return;
             }
             
@@ -76,8 +75,6 @@ define(['jquery', 'core/ajax', 'core/templates'], function($, Ajax, Templates) {
                 childList: true,
                 subtree: true
             });
-            
-            console.log('Cloudflare Stream: Observing grading panel for changes');
         },
         
         /**
@@ -86,7 +83,6 @@ define(['jquery', 'core/ajax', 'core/templates'], function($, Ajax, Templates) {
         handleContentChange: function() {
             // Prevent concurrent processing
             if (this.processing) {
-                console.log('Cloudflare Stream: Already processing, skipping...');
                 return;
             }
             
@@ -106,19 +102,15 @@ define(['jquery', 'core/ajax', 'core/templates'], function($, Ajax, Templates) {
             
             // Case 1: New video found outside layout and no layout exists
             if ($newVideoLink.length > 0 && $existingLayout.length === 0) {
-                console.log('Cloudflare Stream: New video detected, injecting player...');
                 this.pauseObserver();
                 this.injectPlayer();
                 this.resumeObserver();
             }
             // Case 2: No video links at all but layout exists (user switched to non-video submission)
             else if (totalVideoLinks === 0 && $existingLayout.length > 0) {
-                console.log('Cloudflare Stream: No video in new content, removing two-column layout...');
                 this.pauseObserver();
                 this.restoreMoodleLayout();
                 this.resumeObserver();
-            } else {
-                console.log('Cloudflare Stream: No action needed (layout=' + $existingLayout.length + ', total videos=' + totalVideoLinks + ', new videos=' + $newVideoLink.length + ')');
             }
             
             // Reset processing flag
@@ -134,7 +126,6 @@ define(['jquery', 'core/ajax', 'core/templates'], function($, Ajax, Templates) {
         pauseObserver: function() {
             if (this.panelObserver) {
                 this.panelObserver.disconnect();
-                console.log('Cloudflare Stream: Observer paused');
             }
         },
         
@@ -151,7 +142,6 @@ define(['jquery', 'core/ajax', 'core/templates'], function($, Ajax, Templates) {
                             childList: true,
                             subtree: true
                         });
-                        console.log('Cloudflare Stream: Observer resumed');
                     }
                 }, 1000); // Wait 1 second before resuming
             }
@@ -178,14 +168,11 @@ define(['jquery', 'core/ajax', 'core/templates'], function($, Ajax, Templates) {
             
             // Remove the two-column layout
             $layout.remove();
-            
-            console.log('Cloudflare Stream: Restored Moodle original layout');
         },
         
         injectPlayer: function() {
             // Check if we already injected the player
             if ($('.cloudflarestream-two-column-layout').length > 0) {
-                console.log('Cloudflare Stream: Two-column layout already exists, skipping injection');
                 return;
             }
             
@@ -194,11 +181,8 @@ define(['jquery', 'core/ajax', 'core/templates'], function($, Ajax, Templates) {
             var $existingPlayers = $('.cloudflarestream-grading-view, .cloudflarestream-player-container');
             
             if ($readyLink.length === 0 && $existingPlayers.length === 0) {
-                console.log('Cloudflare Stream: No video found on this page');
                 return;
             }
-            
-            console.log('Cloudflare Stream: Found video, injecting two-column layout...');
             
             // Get video info from link or existing player
             var submissionId, videoUid;
@@ -235,7 +219,6 @@ define(['jquery', 'core/ajax', 'core/templates'], function($, Ajax, Templates) {
         },
         
         createTwoColumnLayout: function($videoElement, containerId, videoUid, submissionId) {
-            console.log('Cloudflare Stream: Creating two-column layout...');
             
             // Find the main grading container
             var $gradingContainer = $videoElement.closest('[data-region="grade-panel"]');
@@ -292,17 +275,11 @@ define(['jquery', 'core/ajax', 'core/templates'], function($, Ajax, Templates) {
             
             // Initialize the player
             require(['assignsubmission_cloudflarestream/player'], function(Player) {
-                console.log('Cloudflare Stream: Initializing player with:', {
-                    videoUid: videoUid,
-                    submissionId: submissionId,
-                    containerId: containerId
-                });
                 Player.init(videoUid, submissionId, containerId);
             });
         },
         
         createSimplePlayer: function($readyLink, containerId, videoUid, submissionId) {
-            console.log('Cloudflare Stream: Creating simple player (fallback)...');
             
             var playerHtml = '<div class="cloudflarestream-grading-view">' +
                 '<div class="cloudflarestream-player-wrapper">' +
@@ -322,11 +299,6 @@ define(['jquery', 'core/ajax', 'core/templates'], function($, Ajax, Templates) {
             
             // Initialize the player
             require(['assignsubmission_cloudflarestream/player'], function(Player) {
-                console.log('Cloudflare Stream: Initializing player with:', {
-                    videoUid: videoUid,
-                    submissionId: submissionId,
-                    containerId: containerId
-                });
                 Player.init(videoUid, submissionId, containerId);
             });
         }

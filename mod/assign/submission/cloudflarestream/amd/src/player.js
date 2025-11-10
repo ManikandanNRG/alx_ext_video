@@ -168,11 +168,7 @@ define(['jquery', 'core/ajax', 'core/str'], function ($, Ajax, Str) {
             this.container.append(iframe);
             this.playerIframe = iframe[0];
 
-            // Log for debugging
-            // eslint-disable-next-line no-console
-            console.log('Cloudflare player embedded (public video)');
-            // eslint-disable-next-line no-console
-            console.log('Video UID:', this.videoUid);
+            // Player embedded successfully
         }
 
         /**
@@ -216,8 +212,7 @@ define(['jquery', 'core/ajax', 'core/str'], function ($, Ajax, Str) {
                         const newUrl = `https://iframe.videodelivery.net/${this.videoUid}?token=${this.token}`;
                         $(this.playerIframe).attr('src', newUrl);
 
-                        // eslint-disable-next-line no-console
-                        console.log('Token refreshed successfully');
+                        // Token refreshed successfully
                     }
 
                     // Schedule next refresh
@@ -231,8 +226,7 @@ define(['jquery', 'core/ajax', 'core/str'], function ($, Ajax, Str) {
                     const shouldRetry = this.shouldRetryTokenRefresh(error, attempt, maxRetries);
 
                     if (shouldRetry.should_retry) {
-                        // eslint-disable-next-line no-console
-                        console.log(`Retrying token refresh in ${shouldRetry.delay_ms}ms...`);
+                        // Retrying token refresh
 
                         setTimeout(() => {
                             attemptRefresh();

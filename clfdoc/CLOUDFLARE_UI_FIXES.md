@@ -167,55 +167,99 @@ To restore dropdown, edit `lib.php` and remove the `/*` and `*/` comment markers
 
 ## ✅ Issue 5: Video Player Doesn't Update When Switching Users
 
-**Status:** FIXED (Updated with better timing)
+**Status:** ✅ FIXED AND TESTED
 
 **Problem:**
-In the grading page with two-column layout (video left, grading form right), when teacher switches users from the dropdown, the grading form updates but the video player still shows the previous student's video.
+In the grading page with two-column layout (video left, grading form right), when teacher switches users:
+1. Video player doesn't update to show new student's video
+2. When switching to user without video, old video remains visible
+3. When switching back to user with video, layout doesn't reappear
+4. Grading form disappears for users without videos
 
 **Root Cause:**
-1. The `grading_injector.js` only ran once on page load
-2. It didn't detect when the teacher switched to a different user
-3. Even after adding URL monitoring, we were trying to inject the player before Moodle finished loading the new user's content via AJAX
+Multiple issues discovered during implementation:
+1. Initial approach: Only ran on page load, didn't detect user switches
+2. URL monitoring approach: Tried to inject before Moodle's AJAX finished loading
+3. MutationObserver approach: Triggered infinite loops by observing its own changes
+4. Video link detection: Incorrectly removed layout when video link moved inside it
 
-**Solution:**
-Use MutationObserver to watch Moodle's grading panel and inject player only when video content appears.
+**Final Solution:**
+MutationObserver with debouncing, state tracking, and pause/resume mechanism.
 
 **Implementation:**
 ```javascript
-// Observe Moodle's grading panel for content changes
+// Debounced observer with state tracking
 observeGradingPanel: function() {
-    var $gradingPanel = $('[data-region="grade-panel"]');
-    
-    var observer = new MutationObserver(function(mutations) {
-        // Check if there's a video link in the new content
-        var $videoLink = $('.cloudflarestream-watch-link, .cfstream-grading-link')
-            .not('.cloudflarestream-two-column-layout .cloudflarestream-watch-link');
-        
-        if ($videoLink.length > 0) {
-            // Remove old layout if exists
-            $('.cloudflarestream-two-column-layout').remove();
-            // Inject new player
-            self.injectPlayer();
+    this.panelObserver = new MutationObserver(function(mutations) {
+        // Debounce: wait 500ms after last mutation
+        if (self.debounceTimer) {
+            clearTimeout(self.debounceTimer);
         }
+        self.debounceTimer = setTimeout(function() {
+            self.handleContentChange();
+        }, 500);
     });
     
-    observer.observe($gradingPanel[0], {
+    this.panelObserver.observe($gradingPanel[0], {
         childList: true,
         subtree: true
     });
+},
+
+handleContentChange: function() {
+    // Prevent concurrent processing
+    if (this.processing) return;
+    this.processing = true;
+    
+    var $existingLayout = $('.cloudflarestream-two-column-layout');
+    var $videoLink = $('.cloudflarestream-watch-link, .cfstream-grading-link');
+    var totalVideoLinks = $videoLink.length; // Count ALL links
+    
+    // Filter links outside existing layout
+    var $newVideoLink = $videoLink.filter(function() {
+        return $(this).closest('.cloudflarestream-two-column-layout').length === 0;
+    });
+    
+    // Case 1: New video outside layout, no layout exists
+    if ($newVideoLink.length > 0 && $existingLayout.length === 0) {
+        this.pauseObserver();
+        this.injectPlayer();
+        this.resumeObserver();
+    }
+    // Case 2: NO videos at all, but layout exists
+    else if (totalVideoLinks === 0 && $existingLayout.length > 0) {
+        this.pauseObserver();
+        this.restoreMoodleLayout();
+        this.resumeObserver();
+    }
+    
+    setTimeout(function() { self.processing = false; }, 1000);
 }
 ```
 
-**How It Works:**
-1. Teacher selects different user from dropdown
-2. Moodle loads new user's content via AJAX into grading panel
-3. MutationObserver detects DOM changes
-4. If video link found, inject two-column layout
-5. If no video link (user hasn't submitted), do nothing - Moodle's normal layout remains
-6. Both video and grading form work correctly for all users
+**Key Features:**
+1. **Debouncing (500ms)** - Waits for DOM mutations to settle
+2. **Processing flag** - Prevents concurrent operations
+3. **Pause/Resume observer** - Disconnects during changes to prevent self-triggering
+4. **Total video count** - Checks ALL video links, not just ones outside layout
+5. **State restoration** - Moves grading content back when removing layout
 
-**Key Fix:**
-Following Moodle's pattern - don't force layout changes, only enhance when video exists. This prevents breaking the grading form for users without video submissions.
+**How It Works:**
+1. Teacher switches user → Moodle loads content via AJAX
+2. Observer detects DOM changes → Debounce timer starts
+3. After 500ms of no changes → `handleContentChange()` runs
+4. Checks total video links and layout state
+5. **User with video** → Injects two-column layout
+6. **User without video** → Removes layout, restores Moodle's original design
+7. Observer pauses during changes, resumes after 1 second
+
+**All Scenarios Tested:**
+- ✅ User with video → User with video (updates player)
+- ✅ User with video → User without video (removes layout)
+- ✅ User without video → User with video (injects layout)
+- ✅ User without video → User without video (no action)
+- ✅ No infinite loops or race conditions
+- ✅ Grading form always visible and functional
 
 **Files Changed:**
 - `mod/assign/submission/cloudflarestream/amd/src/grading_injector.js`
