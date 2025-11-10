@@ -74,21 +74,11 @@ define(['jquery'], function ($) {
         registerBeforeUnloadHandler() {
             const self = this;
             window.addEventListener('beforeunload', (event) => {
-                // Debug logging
-                console.log('beforeunload triggered', {
-                    hasUploadData: !!self.uploadData,
-                    uploadInProgress: self.uploadInProgress,
-                    uploadCompleted: self.uploadCompleted,
-                    videoUid: self.uploadData ? self.uploadData.uid : 'none'
-                });
-                
                 // Cleanup if:
                 // 1. Upload is in progress (uploading), OR
                 // 2. Upload completed but form not saved yet (uploadCompleted = true)
                 if (self.uploadData && self.uploadData.uid && 
                     (self.uploadInProgress || self.uploadCompleted)) {
-                    
-                    console.log('Sending cleanup beacon for:', self.uploadData.uid);
                     
                     // Use sendBeacon for reliable delivery during page unload
                     const url = M.cfg.wwwroot + '/mod/assign/submission/cloudflarestream/ajax/cleanup_failed_upload.php';
@@ -99,8 +89,7 @@ define(['jquery'], function ($) {
                     
                     // sendBeacon is specifically designed for this use case
                     // It sends data reliably even when page is unloading
-                    const sent = navigator.sendBeacon(url, formData);
-                    console.log('Beacon sent:', sent);
+                    navigator.sendBeacon(url, formData);
                 }
             });
         }
@@ -116,7 +105,6 @@ define(['jquery'], function ($) {
             if ($form.length > 0) {
                 // Listen for Save button click specifically
                 $form.find('input[type="submit"][name="submitbutton"]').on('click', () => {
-                    console.log('Save button clicked - clearing upload tracking');
                     // User is saving the form - clear tracking to prevent cleanup
                     this.uploadData = null;
                     this.uploadCompleted = false;
@@ -317,11 +305,6 @@ define(['jquery'], function ($) {
                 // Success - keep uploadData for cleanup if user cancels
                 this.uploadInProgress = false;
                 this.uploadCompleted = true; // Mark as completed but not saved
-                console.log('Upload completed successfully. State:', {
-                    uploadData: this.uploadData,
-                    uploadCompleted: this.uploadCompleted,
-                    videoUid: this.uploadData ? this.uploadData.uid : 'none'
-                });
                 this.showSuccess();
 
             } catch (error) {

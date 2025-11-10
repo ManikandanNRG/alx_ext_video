@@ -120,6 +120,20 @@ $form.on('submit', () => {
 - `mod/assign/submission/cloudflarestream/amd/src/uploader.js`
 - `mod/assign/submission/cloudflarestream/amd/build/uploader.min.js`
 
+**Deployment:**
+```bash
+scp mod/assign/submission/cloudflarestream/amd/src/uploader.js ubuntu@dev.aktrea.net:/tmp/
+scp mod/assign/submission/cloudflarestream/amd/build/uploader.min.js ubuntu@dev.aktrea.net:/tmp/
+
+sudo mv /tmp/uploader.js /var/www/html/mod/assign/submission/cloudflarestream/amd/src/
+sudo mv /tmp/uploader.min.js /var/www/html/mod/assign/submission/cloudflarestream/amd/build/
+
+sudo chown www-data:www-data /var/www/html/mod/assign/submission/cloudflarestream/amd/src/uploader.js
+sudo chown www-data:www-data /var/www/html/mod/assign/submission/cloudflarestream/amd/build/uploader.min.js
+
+sudo -u www-data php /var/www/html/admin/cli/purge_caches.php
+```
+
 **No database changes needed!** Uses existing cleanup infrastructure.
 
 ---
