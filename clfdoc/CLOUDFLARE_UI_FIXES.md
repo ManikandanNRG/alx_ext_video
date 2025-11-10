@@ -70,47 +70,57 @@ sudo -u www-data php /var/www/html/admin/cli/purge_caches.php
 
 ---
 
-## ⏸️ Issue 3: Cancel Button Doesn't Delete Video
+## ✅ Issue 3: Cancel Button Doesn't Delete Video After Successful Upload
 
-**Status:** ON HOLD (Pending Manager Discussion)
+**Status:** FIXED
 
 **Problem:**
-When user uploads video and clicks "Cancel" instead of "Save changes", the video remains in Cloudflare and database. This creates orphaned videos.
+When user uploads video successfully (shows "Upload successful") and then clicks "Cancel" instead of "Save changes", the video remains orphaned in Cloudflare and database.
 
-**Current Flow:**
-1. User uploads video → Immediately goes to Cloudflare (permanent)
-2. User clicks "Save" → Just updates database
-3. User clicks "Cancel" → Video STILL in Cloudflare (orphaned!)
+**Root Cause:**
+The `beforeunload` cleanup handler only worked during upload (`uploadInProgress = true`). After successful upload, we set `uploadInProgress = false` and cleared `uploadData`, so Cancel button couldn't trigger cleanup.
 
-**Recommended Solution: Draft Flag Pattern (Moodle Way)**
+**Solution:**
+Extended tracking to cover the entire lifecycle from upload to form save:
 
-Based on analysis of Moodle's default file submission plugin, the proper solution is to use a draft/temporary state:
+1. **New flag:** `uploadCompleted` - tracks successfully uploaded but not saved videos
+2. **Keep uploadData:** Don't clear it after upload, keep it until form is saved
+3. **Form submit handler:** Clear tracking when user actually saves the form
+4. **Enhanced beforeunload:** Cleanup if `uploadInProgress` OR `uploadCompleted`
 
-1. **Upload** → Mark video as `is_draft = 1` in database
-2. **Save** → Set `is_draft = 0` (permanent)
-3. **Cancel** → Draft videos cleaned up by scheduled task
+**Implementation:**
+```javascript
+// Track upload completion
+this.uploadCompleted = false;
 
-**Implementation Required:**
-- Add `is_draft` column to database
-- Add `draft_created` timestamp column
-- Mark videos as draft on upload
-- Mark as permanent in `save()` method
-- Create scheduled task to cleanup old drafts (24 hours)
-- Update `view()` to only show non-draft videos
+// After successful upload - keep tracking
+this.uploadInProgress = false;
+this.uploadCompleted = true; // Mark as completed but not saved
 
-**Files to Modify:**
-- `db/install.xml` - Add columns
-- `db/upgrade.php` - Migration script
-- `lib.php` - Update `save()` method
-- `ajax/confirm_upload.php` - Mark as draft
-- `classes/task/cleanup_drafts.php` - New scheduled task
-- `db/tasks.php` - Register task
+// Enhanced beforeunload - cleanup in both states
+if (this.uploadData && this.uploadData.uid && 
+    (this.uploadInProgress || this.uploadCompleted)) {
+    navigator.sendBeacon(url, formData);
+}
 
-**Reference:**
-See `clfdoc/MOODLE_FILE_SUBMISSION_ANALYSIS.md` for detailed analysis of how Moodle's file submission handles this.
+// Clear tracking on form submit (Save button)
+$form.on('submit', () => {
+    this.uploadData = null;
+    this.uploadCompleted = false;
+});
+```
 
-**Decision Needed:**
-Requires manager approval before implementation due to database schema changes.
+**How It Works:**
+1. User uploads video → `uploadCompleted = true`, `uploadData` kept
+2. User clicks "Save" → Form submit clears tracking → No cleanup
+3. User clicks "Cancel" → `beforeunload` triggers → Cleanup runs → Video deleted
+4. Scheduled task catches any missed cleanups (backup safety net)
+
+**Files Changed:**
+- `mod/assign/submission/cloudflarestream/amd/src/uploader.js`
+- `mod/assign/submission/cloudflarestream/amd/build/uploader.min.js`
+
+**No database changes needed!** Uses existing cleanup infrastructure.
 
 ---
 

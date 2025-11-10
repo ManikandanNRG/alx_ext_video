@@ -58,9 +58,13 @@ define(['jquery'], function ($) {
             this.retryCount = 0;
             this.maxRetries = 3;
             this.uploadData = null; // Store upload data for cleanup
+            this.uploadCompleted = false; // Track if upload completed successfully
             
             // Register beforeunload handler for cleanup on page navigation
             this.registerBeforeUnloadHandler();
+            
+            // Register form submit handler to clear tracking when saved
+            this.registerFormSubmitHandler();
         }
         
         /**
@@ -68,23 +72,57 @@ define(['jquery'], function ($) {
          * This catches: Cancel button, browser close, tab close, back button, etc.
          */
         registerBeforeUnloadHandler() {
+            const self = this;
             window.addEventListener('beforeunload', (event) => {
-                // Only cleanup if upload is in progress and we have upload data
-                if (this.uploadInProgress && this.uploadData && this.uploadData.uid) {
-                    console.log('Page unloading during upload, sending cleanup beacon for: ' + this.uploadData.uid);
+                // Debug logging
+                console.log('beforeunload triggered', {
+                    hasUploadData: !!self.uploadData,
+                    uploadInProgress: self.uploadInProgress,
+                    uploadCompleted: self.uploadCompleted,
+                    videoUid: self.uploadData ? self.uploadData.uid : 'none'
+                });
+                
+                // Cleanup if:
+                // 1. Upload is in progress (uploading), OR
+                // 2. Upload completed but form not saved yet (uploadCompleted = true)
+                if (self.uploadData && self.uploadData.uid && 
+                    (self.uploadInProgress || self.uploadCompleted)) {
+                    
+                    console.log('Sending cleanup beacon for:', self.uploadData.uid);
                     
                     // Use sendBeacon for reliable delivery during page unload
                     const url = M.cfg.wwwroot + '/mod/assign/submission/cloudflarestream/ajax/cleanup_failed_upload.php';
                     const formData = new FormData();
-                    formData.append('videouid', this.uploadData.uid);
-                    formData.append('submissionid', this.uploadData.submissionid);
+                    formData.append('videouid', self.uploadData.uid);
+                    formData.append('submissionid', self.uploadData.submissionid);
                     formData.append('sesskey', M.cfg.sesskey);
                     
                     // sendBeacon is specifically designed for this use case
                     // It sends data reliably even when page is unloading
-                    navigator.sendBeacon(url, formData);
+                    const sent = navigator.sendBeacon(url, formData);
+                    console.log('Beacon sent:', sent);
                 }
             });
+        }
+        
+        /**
+         * Register form submit handler to clear tracking when form is saved.
+         * This prevents cleanup when user actually saves the submission.
+         */
+        registerFormSubmitHandler() {
+            // Find the assignment submission form
+            const $form = $('form[id*="submissionform"], form.mform');
+            
+            if ($form.length > 0) {
+                // Listen for Save button click specifically
+                $form.find('input[type="submit"][name="submitbutton"]').on('click', () => {
+                    console.log('Save button clicked - clearing upload tracking');
+                    // User is saving the form - clear tracking to prevent cleanup
+                    this.uploadData = null;
+                    this.uploadCompleted = false;
+                    this.uploadInProgress = false;
+                });
+            }
         }
 
         /**
@@ -276,9 +314,14 @@ define(['jquery'], function ($) {
                 this.updateProgress(100, 'Finalizing upload...');
                 await this.confirmUploadWithRetry(uploadData.uid, uploadData.submissionid);
 
-                // Success
-                this.uploadData = null;
+                // Success - keep uploadData for cleanup if user cancels
                 this.uploadInProgress = false;
+                this.uploadCompleted = true; // Mark as completed but not saved
+                console.log('Upload completed successfully. State:', {
+                    uploadData: this.uploadData,
+                    uploadCompleted: this.uploadCompleted,
+                    videoUid: this.uploadData ? this.uploadData.uid : 'none'
+                });
                 this.showSuccess();
 
             } catch (error) {
