@@ -562,10 +562,35 @@ class assign_submission_cloudflarestream extends assign_submission_plugin {
      * @return bool Success
      */
     public function remove(stdClass $submission) {
-        global $DB;
+        global $DB, $CFG;
 
-        // Note: This only removes the database record, not the video from Cloudflare
-        // Video cleanup is handled by the scheduled task based on retention policy
+        // Get the video record before deleting from database
+        $video = $DB->get_record('assignsubmission_cfstream', 
+            array('submission' => $submission->id));
+        
+        // Delete video from Cloudflare if it exists
+        if ($video && !empty($video->video_uid)) {
+            error_log("Cloudflare remove(): Deleting video {$video->video_uid} for removed submission {$submission->id}");
+            
+            try {
+                $apitoken = get_config('assignsubmission_cloudflarestream', 'apitoken');
+                $accountid = get_config('assignsubmission_cloudflarestream', 'accountid');
+                
+                if (!empty($apitoken) && !empty($accountid)) {
+                    require_once($CFG->dirroot . '/mod/assign/submission/cloudflarestream/classes/api/cloudflare_client.php');
+                    $client = new \assignsubmission_cloudflarestream\api\cloudflare_client($apitoken, $accountid);
+                    $client->delete_video($video->video_uid);
+                    
+                    error_log("Cloudflare remove(): ✓ Successfully deleted video {$video->video_uid} from Cloudflare");
+                }
+            } catch (\assignsubmission_cloudflarestream\api\cloudflare_video_not_found_exception $e) {
+                error_log("Cloudflare remove(): Video {$video->video_uid} already deleted (404)");
+            } catch (Exception $e) {
+                error_log("Cloudflare remove(): ✗ Failed to delete video {$video->video_uid}: " . $e->getMessage());
+            }
+        }
+
+        // Remove the database record
         return $DB->delete_records('assignsubmission_cfstream', 
             array('submission' => $submission->id));
     }
