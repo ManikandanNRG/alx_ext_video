@@ -67,8 +67,8 @@ class validator {
         'mp4', 'mpeg', 'mpg', 'mov', 'avi', 'wmv', 'webm', 'ogv', '3gp', 'flv'
     ];
     
-    /** @var int Maximum file size (5GB) */
-    const MAX_FILE_SIZE = 5368709120; // 5 * 1024 * 1024 * 1024
+    /** @var int Default maximum file size (5GB) - used as fallback only */
+    const DEFAULT_MAX_FILE_SIZE = 5368709120; // 5 * 1024 * 1024 * 1024
     
     /** @var int Maximum video duration (6 hours) */
     const MAX_DURATION_SECONDS = 21600; // 6 * 60 * 60
@@ -90,8 +90,14 @@ class validator {
             throw new validation_exception('invalid_file_size', 'File size must be a positive number');
         }
         
-        if ($filesize > self::MAX_FILE_SIZE) {
-            $maxsizeformatted = function_exists('display_size') ? display_size(self::MAX_FILE_SIZE) : (self::MAX_FILE_SIZE . ' bytes');
+        // Get max file size from config (reads from admin settings)
+        $maxfilesize = get_config('assignsubmission_cloudflarestream', 'max_file_size');
+        if (empty($maxfilesize)) {
+            $maxfilesize = self::DEFAULT_MAX_FILE_SIZE; // Fallback to 5GB
+        }
+        
+        if ($filesize > $maxfilesize) {
+            $maxsizeformatted = function_exists('display_size') ? display_size($maxfilesize) : ($maxfilesize . ' bytes');
             throw new validation_exception('file_too_large', 
                 'File size exceeds maximum allowed size of ' . $maxsizeformatted);
         }

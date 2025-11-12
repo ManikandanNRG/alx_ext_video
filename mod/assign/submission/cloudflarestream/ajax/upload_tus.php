@@ -21,6 +21,8 @@ require_once(__DIR__ . '/../../../../../config.php');
 require_once($CFG->dirroot . '/mod/assign/locallib.php');
 
 use assignsubmission_cloudflarestream\api\cloudflare_client;
+use assignsubmission_cloudflarestream\validator;
+use assignsubmission_cloudflarestream\validation_exception;
 
 // Get parameters.
 $action = required_param('action', PARAM_ALPHA);
@@ -66,6 +68,18 @@ try {
         // Create TUS session.
         $filesize = required_param('filesize', PARAM_INT);
         $filename = required_param('filename', PARAM_TEXT);
+        
+        // Validate file size against configured maximum
+        try {
+            validator::validate_file_size($filesize);
+        } catch (validation_exception $e) {
+            http_response_code(400);
+            echo json_encode([
+                'success' => false,
+                'error' => $e->getMessage()
+            ]);
+            exit;
+        }
         
         $result = $client->create_tus_upload($filesize, $filename);
         
