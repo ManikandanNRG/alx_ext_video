@@ -127,8 +127,8 @@ if ($action === 'delete' && !empty($videouid) && !$confirm) {
         if ($videodetails) {
             echo $OUTPUT->confirm(
                 get_string('deleteconfirm_desc', 'assignsubmission_cloudflarestream') . '<br><br>' .
-                '<strong>' . get_string('course') . ':</strong> ' . s($videodetails->coursename) . '<br>' .
-                '<strong>' . get_string('assignment', 'assign') . ':</strong> ' . s($videodetails->assignmentname) . '<br>' .
+                '<strong>' . get_string('course', 'assignsubmission_cloudflarestream') . ':</strong> ' . s($videodetails->coursename) . '<br>' .
+                '<strong>' . get_string('assignment', 'assignsubmission_cloudflarestream') . ':</strong> ' . s($videodetails->assignmentname) . '<br>' .
                 '<strong>' . get_string('student', 'assignsubmission_cloudflarestream') . ':</strong> ' . 
                 fullname($videodetails) . '<br>' .
                 '<strong>' . get_string('videouid', 'assignsubmission_cloudflarestream') . ':</strong> ' . s($videouid) . '<br>' .
@@ -162,7 +162,7 @@ $courses = $DB->get_records_sql("
 ");
 
 if (!empty($courses)) {
-    $courseoptions = [0 => get_string('allcourses', 'moodle')];
+    $courseoptions = [0 => get_string('allcourses', 'assignsubmission_cloudflarestream')];
     foreach ($courses as $course) {
         $courseoptions[$course->id] = $course->fullname;
     }
@@ -173,7 +173,7 @@ if (!empty($courses)) {
 
 // Status filter.
 $statusoptions = [
-    '' => get_string('allstatuses', 'moodle'),
+    '' => get_string('allstatuses', 'assignsubmission_cloudflarestream'),
     'ready' => get_string('status_ready', 'assignsubmission_cloudflarestream'),
     'uploading' => get_string('status_uploading', 'assignsubmission_cloudflarestream'),
     'error' => get_string('status_error', 'assignsubmission_cloudflarestream')
@@ -264,8 +264,8 @@ if (empty($videos)) {
     echo html_writer::start_tag('table', ['class' => 'table table-striped table-bordered']);
     echo html_writer::start_tag('thead');
     echo html_writer::start_tag('tr');
-    echo html_writer::tag('th', get_string('course'));
-    echo html_writer::tag('th', get_string('assignment', 'assign'));
+    echo html_writer::tag('th', get_string('course', 'assignsubmission_cloudflarestream'));
+    echo html_writer::tag('th', get_string('assignment', 'assignsubmission_cloudflarestream'));
     echo html_writer::tag('th', get_string('student', 'assignsubmission_cloudflarestream'));
     echo html_writer::tag('th', get_string('videouid', 'assignsubmission_cloudflarestream'));
     echo html_writer::tag('th', get_string('status', 'assignsubmission_cloudflarestream'));

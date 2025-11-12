@@ -197,6 +197,8 @@ $string['reset'] = 'Reset';
 $string['videomanagement_desc'] = 'Manage and delete individual videos from Cloudflare Stream';
 $string['allcourses'] = 'All courses';
 $string['allstatuses'] = 'All statuses';
+$string['assignment'] = 'Assignment';
+$string['course'] = 'Course';
 // Validation error strings.
 $string['invalid_file_size'] = 'Invalid file size';
 $string['file_too_large'] = 'File size exceeds maximum allowed size';
