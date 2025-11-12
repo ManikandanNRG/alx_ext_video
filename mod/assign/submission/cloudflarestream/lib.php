@@ -491,11 +491,15 @@ class assign_submission_cloudflarestream extends assign_submission_plugin {
     /**
      * Get the retention period in days.
      *
-     * @return int Retention period in days
+     * @return int Retention period in days (-1 = always keep, 0 or empty = invalid, >0 = days)
      */
     public function get_retention_days() {
         $days = get_config('assignsubmission_cloudflarestream', 'retention_days');
-        return !empty($days) ? (int)$days : 90; // Default 90 days
+        // Handle explicit values including -1 (always keep)
+        if ($days !== false && $days !== null && $days !== '') {
+            return (int)$days;
+        }
+        return 90; // Default 90 days
     }
 
     /**

@@ -22,7 +22,8 @@ $string['apitoken_desc'] = 'Enter your Cloudflare API token with Stream permissi
 $string['accountid'] = 'Cloudflare Account ID';
 $string['accountid_desc'] = 'Enter your Cloudflare account ID. You can find this in your Cloudflare dashboard.';
 $string['retention_days'] = 'Video retention period (days)';
-$string['retention_days_desc'] = 'Number of days to keep videos before automatic deletion. Default is 90 days.';
+$string['retention_days_desc'] = 'Number of days to keep videos before automatic deletion. Choose "Always" to keep videos forever. Default is 90 days.';
+$string['retention_always'] = 'Always (Keep Forever)';
 $string['max_file_size'] = 'Maximum file size';
 $string['max_file_size_desc'] = 'Maximum video file size that can be uploaded.';
 

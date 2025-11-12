@@ -45,12 +45,22 @@ if ($ADMIN->fulltree) {
     ));
 
     // Video retention period in days.
-    $settings->add(new admin_setting_configtext(
+    $settings->add(new admin_setting_configselect(
         'assignsubmission_cloudflarestream/retention_days',
         get_string('retention_days', 'assignsubmission_cloudflarestream'),
         get_string('retention_days_desc', 'assignsubmission_cloudflarestream'),
-        '90',
-        PARAM_INT
+        90,
+        [
+            30 => '30 days',
+            60 => '60 days',
+            90 => '90 days',
+            180 => '180 days',
+            365 => '365 days (1 year)',
+            730 => '730 days (2 years)',
+            1095 => '1095 days (3 years)',
+            1825 => '1825 days (5 years)',
+            -1 => get_string('retention_always', 'assignsubmission_cloudflarestream')
+        ]
     ));
 
     // Maximum file size in bytes (default 5GB).

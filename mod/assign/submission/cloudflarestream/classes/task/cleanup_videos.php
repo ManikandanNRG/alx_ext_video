@@ -69,6 +69,12 @@ class cleanup_videos extends \core\task\scheduled_task {
             return;
         }
 
+        // Skip cleanup if retention is set to "Always" (-1) or invalid (0 or empty).
+        if ($retentiondays == -1) {
+            mtrace('Cloudflare Stream cleanup: Video retention set to "Always (Keep Forever)" - videos will be kept forever. Skipping cleanup.');
+            return;
+        }
+
         if (empty($retentiondays) || $retentiondays <= 0) {
             mtrace('Cloudflare Stream cleanup: Invalid retention period configured. Skipping cleanup.');
             return;
