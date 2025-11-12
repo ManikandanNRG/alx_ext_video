@@ -26,6 +26,22 @@ $string['retention_days_desc'] = 'Number of days to keep videos before automatic
 $string['retention_always'] = 'Always (Keep Forever)';
 $string['max_file_size'] = 'Maximum file size';
 $string['max_file_size_desc'] = 'Maximum video file size that can be uploaded.';
+$string['allowed_formats'] = 'Allowed video formats';
+$string['allowed_formats_desc'] = 'List of allowed video MIME types (one per line). Enter the full MIME type, not just the extension.<br><br>
+<strong>Common Video MIME Types:</strong><br>
+• <code>video/mp4</code> - MP4 files (.mp4)<br>
+• <code>video/quicktime</code> - QuickTime files (.mov)<br>
+• <code>video/x-msvideo</code> - AVI files (.avi)<br>
+• <code>video/x-matroska</code> - Matroska files (.mkv)<br>
+• <code>video/webm</code> - WebM files (.webm)<br>
+• <code>video/mpeg</code> - MPEG files (.mpeg, .mpg)<br>
+• <code>video/ogg</code> - OGG files (.ogv)<br>
+• <code>video/3gpp</code> - 3GP files (.3gp)<br>
+• <code>video/x-flv</code> - Flash Video files (.flv)<br>
+• <code>video/x-ms-wmv</code> - Windows Media Video (.wmv)<br>
+• <code>video/x-ms-asf</code> - ASF files (.asf)<br>
+• <code>video/mp2t</code> - MPEG-2 Transport Stream (.ts)<br><br>
+<strong>Note:</strong> Only files with MIME types listed here will be accepted for upload.';
 
 // Upload interface strings.
 $string['uploadvideofile'] = 'Upload file';

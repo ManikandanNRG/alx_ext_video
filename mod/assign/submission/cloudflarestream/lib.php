@@ -410,12 +410,20 @@ class assign_submission_cloudflarestream extends assign_submission_plugin {
     protected function get_upload_interface_html($video = null) {
         global $OUTPUT;
 
+        // Get allowed formats from settings
+        $allowedformats = get_config('assignsubmission_cloudflarestream', 'allowed_formats');
+        if (empty($allowedformats)) {
+            // Default formats if not configured
+            $allowedformats = "video/mp4\nvideo/quicktime\nvideo/x-msvideo\nvideo/x-matroska\nvideo/webm\nvideo/mpeg\nvideo/ogg\nvideo/3gpp\nvideo/x-flv";
+        }
+        
         // Prepare template context
         $context = [
             'assignmentid' => $this->assignment->get_instance()->id,
             'submissionid' => 0,
             'maxfilesize' => $this->get_max_file_size(),
             'maxfilesizeformatted' => display_size($this->get_max_file_size()),
+            'allowedformats' => json_encode(array_filter(array_map('trim', explode("\n", $allowedformats)))),
             'hasvideo' => !empty($video),
         ];
 

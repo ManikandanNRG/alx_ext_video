@@ -47,11 +47,13 @@ define(['jquery'], function ($) {
          * @param {number} assignmentId The assignment ID
          * @param {number} submissionId The submission ID (optional)
          * @param {number} maxFileSize Maximum file size in bytes
+         * @param {Array<string>} allowedFormats Allowed MIME types (optional)
          */
-        constructor(assignmentId, submissionId, maxFileSize) {
+        constructor(assignmentId, submissionId, maxFileSize, allowedFormats) {
             this.assignmentId = assignmentId;
             this.submissionId = submissionId || 0;
             this.maxFileSize = maxFileSize || MAX_FILE_SIZE;
+            this.allowedFormats = allowedFormats || ALLOWED_MIME_TYPES;
             this.uploadInProgress = false;
             this.currentFile = null;
             this.currentXHR = null;
@@ -239,10 +241,11 @@ define(['jquery'], function ($) {
                 };
             }
 
-            if (!ALLOWED_MIME_TYPES.includes(file.type) && !file.type.startsWith('video/')) {
+            // Strict validation: Only allow files in the allowed formats list
+            if (!this.allowedFormats.includes(file.type)) {
                 return {
                     valid: false,
-                    error: 'Unsupported file type: ' + file.type + '. Please upload a video file.'
+                    error: 'Unsupported file type: ' + file.type + '. Please check allowed formats in the upload interface.'
                 };
             }
 
@@ -873,8 +876,8 @@ define(['jquery'], function ($) {
          * @param {string} containerSelector Container selector
          * @return {CloudflareUploader} The uploader instance
          */
-        init: function (assignmentId, submissionId, maxFileSize, containerSelector) {
-            const uploader = new CloudflareUploader(assignmentId, submissionId, maxFileSize);
+        init: function (assignmentId, submissionId, maxFileSize, containerSelector, allowedFormats) {
+            const uploader = new CloudflareUploader(assignmentId, submissionId, maxFileSize, allowedFormats);
             uploader.init(containerSelector);
             return uploader;
         }

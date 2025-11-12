@@ -155,7 +155,8 @@ require(['assignsubmission_cloudflarestream/uploader'], function(Uploader) {
         {{assignmentid}}, 
         {{#submissionid}}{{submissionid}}{{/submissionid}}{{^submissionid}}0{{/submissionid}}, 
         {{maxfilesize}}, 
-        '.cloudflarestream-upload-interface'
+        '.cloudflarestream-upload-interface',
+        {{{allowedformats}}}
     );
 });
 {{/js}}

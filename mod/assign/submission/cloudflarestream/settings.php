@@ -86,6 +86,15 @@ if ($ADMIN->fulltree) {
         $sizeoptions
     ));
     
+    // Allowed video formats (MIME types).
+    $settings->add(new admin_setting_configtextarea(
+        'assignsubmission_cloudflarestream/allowed_formats',
+        get_string('allowed_formats', 'assignsubmission_cloudflarestream'),
+        get_string('allowed_formats_desc', 'assignsubmission_cloudflarestream'),
+        "video/mp4\nvideo/quicktime\nvideo/x-msvideo\nvideo/x-matroska\nvideo/webm\nvideo/mpeg\nvideo/ogg\nvideo/3gpp\nvideo/x-flv",
+        PARAM_TEXT
+    ));
+    
     // Rate limiting settings.
     $settings->add(new admin_setting_heading(
         'assignsubmission_cloudflarestream/ratelimitheading',
