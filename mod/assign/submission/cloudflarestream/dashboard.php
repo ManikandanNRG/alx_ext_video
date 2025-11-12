@@ -188,8 +188,8 @@ if (!empty($recentfailures)) {
     echo html_writer::start_tag('thead');
     echo html_writer::start_tag('tr');
     echo html_writer::tag('th', get_string('timestamp', 'assignsubmission_cloudflarestream'));
-    echo html_writer::tag('th', get_string('user'));
-    echo html_writer::tag('th', get_string('assignment', 'assign'));
+    echo html_writer::tag('th', get_string('user', 'assignsubmission_cloudflarestream'));
+    echo html_writer::tag('th', get_string('assignment', 'assignsubmission_cloudflarestream'));
     echo html_writer::tag('th', get_string('errorcode', 'assignsubmission_cloudflarestream'));
     echo html_writer::tag('th', get_string('errormessage', 'assignsubmission_cloudflarestream'));
     echo html_writer::end_tag('tr');

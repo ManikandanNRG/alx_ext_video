@@ -199,6 +199,7 @@ $string['allcourses'] = 'All courses';
 $string['allstatuses'] = 'All statuses';
 $string['assignment'] = 'Assignment';
 $string['course'] = 'Course';
+$string['user'] = 'User';
 // Validation error strings.
 $string['invalid_file_size'] = 'Invalid file size';
 $string['file_too_large'] = 'File size exceeds maximum allowed size';
