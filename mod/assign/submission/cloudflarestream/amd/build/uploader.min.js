@@ -280,6 +280,7 @@ define(['jquery'], function ($) {
 
             try {
                 this.uploadInProgress = true;
+                this.disableSaveButton(); // Disable Save button during upload
                 this.showProgress();
                 this.updateProgress(0);
 
@@ -305,10 +306,12 @@ define(['jquery'], function ($) {
                 // Success - keep uploadData for cleanup if user cancels
                 this.uploadInProgress = false;
                 this.uploadCompleted = true; // Mark as completed but not saved
+                this.enableSaveButton(); // Re-enable Save button after successful upload
                 this.showSuccess();
 
             } catch (error) {
                 this.uploadInProgress = false;
+                this.enableSaveButton(); // Re-enable Save button on error
                 
                 if (uploadData && uploadData.uid) {
                     console.log('Upload failed, cleaning up video: ' + uploadData.uid);
@@ -827,6 +830,36 @@ define(['jquery'], function ($) {
             this.progressContainer.hide();
             this.dropzone.show();
             this.statusMessage.empty().removeClass('alert-danger alert-success').hide();
+        }
+
+        /**
+         * Disable the Save changes button to prevent submission during upload.
+         */
+        disableSaveButton() {
+            const $saveButton = $('input[type="submit"][name="submitbutton"]');
+            if ($saveButton.length > 0) {
+                $saveButton.prop('disabled', true);
+                $saveButton.data('original-value', $saveButton.val());
+                $saveButton.val('Upload in progress...');
+                $saveButton.addClass('btn-secondary').removeClass('btn-primary');
+                console.log('Save button disabled during upload');
+            }
+        }
+
+        /**
+         * Re-enable the Save changes button after upload completes or fails.
+         */
+        enableSaveButton() {
+            const $saveButton = $('input[type="submit"][name="submitbutton"]');
+            if ($saveButton.length > 0) {
+                $saveButton.prop('disabled', false);
+                const originalValue = $saveButton.data('original-value');
+                if (originalValue) {
+                    $saveButton.val(originalValue);
+                }
+                $saveButton.removeClass('btn-secondary').addClass('btn-primary');
+                console.log('Save button enabled after upload');
+            }
         }
     }
 
