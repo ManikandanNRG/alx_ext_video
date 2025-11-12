@@ -69,27 +69,28 @@ class cleanup_videos extends \core\task\scheduled_task {
             return;
         }
 
-        // Skip cleanup if retention is set to "Always" (-1) or invalid (0 or empty).
-        if ($retentiondays == -1) {
-            mtrace('Cloudflare Stream cleanup: Video retention set to "Always (Keep Forever)" - videos will be kept forever. Skipping cleanup.');
-            return;
-        }
-
-        if (empty($retentiondays) || $retentiondays <= 0) {
-            mtrace('Cloudflare Stream cleanup: Invalid retention period configured. Skipping cleanup.');
-            return;
-        }
-
         // Initialize Cloudflare client (used by both cleanup and sync).
         $cloudflare = new cloudflare_client($apitoken, $accountid);
 
-        // Step 1: Clean up stuck/failed uploads (pending/uploading for > 1 hour).
+        // Step 1: ALWAYS clean up stuck/failed uploads (pending/uploading for > 30 minutes).
+        // This runs regardless of retention policy to prevent orphaned videos.
         $this->cleanup_stuck_uploads($cloudflare);
 
         // Step 2: Sync database with Cloudflare (detect manually deleted videos).
         $this->sync_with_cloudflare($cloudflare);
 
-        // Step 3: Clean up expired videos.
+        // Step 3: Clean up expired videos based on retention policy.
+        // Skip if retention is set to "Always" (-1) - only ready videos are kept forever.
+        if ($retentiondays == -1) {
+            mtrace('Cloudflare Stream cleanup: Video retention set to "Always (Keep Forever)" - ready videos will be kept forever. Stuck uploads were still cleaned.');
+            return;
+        }
+
+        if (empty($retentiondays) || $retentiondays <= 0) {
+            mtrace('Cloudflare Stream cleanup: Invalid retention period configured. Skipping expired video cleanup.');
+            return;
+        }
+
         $this->cleanup_expired_videos($cloudflare, $retentiondays);
     }
 
