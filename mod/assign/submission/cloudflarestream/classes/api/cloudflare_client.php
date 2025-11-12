@@ -157,7 +157,7 @@ class cloudflare_client {
      * @throws cloudflare_video_not_found_exception If the video is not found
      * @throws cloudflare_api_exception If the API request fails
      */
-    public function get_video_details($videouid) {
+    public function get_video_details($videouid, $skipvalidation = false) {
         // Validate input parameters.
         $videouid = validator::validate_video_uid($videouid);
         
@@ -167,8 +167,10 @@ class cloudflare_client {
         // Validate API response structure.
         validator::validate_api_response($response);
 
-        // Validate video details.
-        validator::validate_video_details($response->result);
+        // Validate video details (skip during sync to avoid file size errors).
+        if (!$skipvalidation) {
+            validator::validate_video_details($response->result);
+        }
 
         return $response->result;
     }

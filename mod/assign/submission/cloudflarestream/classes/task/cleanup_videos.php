@@ -220,8 +220,8 @@ class cleanup_videos extends \core\task\scheduled_task {
 
         foreach ($readyvideos as $video) {
             try {
-                // Check if video still exists in Cloudflare.
-                $cloudflare->get_video_details($video->video_uid);
+                // Check if video still exists in Cloudflare (skip validation to avoid file size errors).
+                $cloudflare->get_video_details($video->video_uid, true);
                 // Video exists, no action needed.
                 $syncedcount++;
 
