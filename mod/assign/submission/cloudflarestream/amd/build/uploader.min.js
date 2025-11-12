@@ -540,8 +540,17 @@ define(['jquery'], function ($) {
                 }).done((data) => {
                     if (data.success) {
                         // Update hidden form fields
-                        $('input[name="cloudflarestream_video_id"]').val(videoId);
+                        $('input[name="cloudflarestream_video_uid"]').val(videoId);
                         $('input[name="cloudflarestream_status"]').val(data.status);
+                        
+                        // Also update file size and duration if available
+                        if (data.filesize) {
+                            $('input[name="cloudflarestream_file_size"]').val(data.filesize);
+                        }
+                        if (data.duration) {
+                            $('input[name="cloudflarestream_duration"]').val(data.duration);
+                        }
+                        
                         resolve(data);
                     } else {
                         const error = new Error(data.error || 'Failed to confirm upload');

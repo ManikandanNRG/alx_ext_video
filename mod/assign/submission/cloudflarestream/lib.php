@@ -111,6 +111,9 @@ class assign_submission_cloudflarestream extends assign_submission_plugin {
             array('submission' => $submission->id));
 
         if ($existing) {
+            // Note: Old video deletion is handled in confirm_upload.php
+            // because by the time save() runs, the database already has the new UID
+            
             // Update existing record
             $existing->video_uid = $video_uid;
             $existing->upload_status = $upload_status;

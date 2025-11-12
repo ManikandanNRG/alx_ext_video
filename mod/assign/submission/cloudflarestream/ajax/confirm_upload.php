@@ -134,6 +134,31 @@ try {
     $record = $DB->get_record('assignsubmission_cfstream', 
         array('submission' => $submissionid), '*', MUST_EXIST);
     
+    // Debug: Log what we found
+    error_log("Cloudflare confirm_upload: DB record video_uid = '{$record->video_uid}', New videouid = '{$videouid}'");
+    error_log("Cloudflare confirm_upload: video_uid empty? " . (empty($record->video_uid) ? 'YES' : 'NO'));
+    error_log("Cloudflare confirm_upload: UIDs different? " . ($record->video_uid !== $videouid ? 'YES' : 'NO'));
+    
+    // Delete old video from Cloudflare if this is a replacement (UID is changing)
+    if (!empty($record->video_uid) && $record->video_uid !== $videouid) {
+        error_log("Cloudflare confirm_upload: Detected video replacement - Old UID: {$record->video_uid}, New UID: {$videouid}");
+        
+        try {
+            $apitoken = get_config('assignsubmission_cloudflarestream', 'apitoken');
+            $accountid = get_config('assignsubmission_cloudflarestream', 'accountid');
+            
+            if (!empty($apitoken) && !empty($accountid)) {
+                $client = new cloudflare_client($apitoken, $accountid);
+                $client->delete_video($record->video_uid);
+                error_log("Cloudflare confirm_upload: ✓ Successfully deleted old video {$record->video_uid}");
+            }
+        } catch (cloudflare_video_not_found_exception $e) {
+            error_log("Cloudflare confirm_upload: Old video {$record->video_uid} already deleted (404)");
+        } catch (Exception $e) {
+            error_log("Cloudflare confirm_upload: ✗ Failed to delete old video {$record->video_uid}: " . $e->getMessage());
+        }
+    }
+    
     // Update the record with video details.
     $record->video_uid = $videouid;
     $record->upload_status = $uploadstatus;
