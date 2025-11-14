@@ -1650,3 +1650,288 @@ If TUS implementation is too complex, consider Cloudflare's Direct Creator Uploa
 - Phase 2 adds resumable uploads for large files (5 hours)
 - Both phases work together for complete solution
 - Updated implementation order and testing plan
+
+
+---
+
+## Task 8: Orphaned Video Cleanup (Automatic Detection & Deletion)
+
+### Priority: MEDIUM
+### Status: ⏳ Pending (After Testing Current Features)
+### Estimated Time: 2 hours
+
+### Description:
+Add automatic detection and cleanup of orphaned videos in Cloudflare that don't exist in the database. These orphans are created when:
+- Database insert fails after Cloudflare video is created
+- Temporary records are deleted without deleting Cloudflare video
+- Upload errors occur during testing/development
+
+### Current Issue:
+- Orphaned videos accumulate in Cloudflare (especially "Pending Upload" status)
+- Manual cleanup required from Cloudflare dashboard
+- Wastes storage and costs money
+- No automatic detection or cleanup
+
+### Solution:
+Add a new cleanup method that:
+1. Gets ALL videos from Cloudflare API
+2. Checks which ones are NOT in database
+3. Deletes orphaned videos (especially pending ones > 30 minutes old)
+
+### Files to Modify:
+
+#### 1. `classes/task/cleanup_videos.php`
+
+**Location:** Add new method after `cleanup_duplicate_records()` (around line 250)
+
+**Add this method:**
+
+```php
+/**
+ * Clean up orphaned videos in Cloudflare that don't exist in database.
+ * These can be created when database insert fails or during testing.
+ *
+ * @param cloudflare_client $cloudflare Cloudflare API client
+ */
+private function cleanup_orphaned_videos($cloudflare) {
+    global $DB;
+
+    mtrace("Cloudflare Stream cleanup: Checking for orphaned videos in Cloudflare...");
+
+    try {
+        // Get all videos from Cloudflare API
+        $cloudflare_videos = $cloudflare->list_all_videos();
+        
+        if (empty($cloudflare_videos)) {
+            mtrace('Cloudflare Stream cleanup: No videos found in Cloudflare.');
+            return;
+        }
+
+        mtrace('Cloudflare Stream cleanup: Found ' . count($cloudflare_videos) . ' videos in Cloudflare.');
+
+        // Get all video UIDs from database
+        $db_records = $DB->get_records('assignsubmission_cfstream', null, '', 'video_uid');
+        $db_video_uids = array_keys($db_records);
+
+        mtrace('Cloudflare Stream cleanup: Found ' . count($db_video_uids) . ' videos in database.');
+
+        $orphaned_count = 0;
+        $deleted_count = 0;
+        $skipped_count = 0;
+        $error_count = 0;
+
+        // Check each Cloudflare video
+        foreach ($cloudflare_videos as $cf_video) {
+            $uid = $cf_video->uid;
+
+            // Check if this video exists in database
+            if (!in_array($uid, $db_video_uids)) {
+                // ORPHAN FOUND!
+                $orphaned_count++;
+
+                // Get video age
+                $created_time = strtotime($cf_video->created);
+                $age_minutes = (time() - $created_time) / 60;
+                $status = isset($cf_video->status->state) ? $cf_video->status->state : 'unknown';
+
+                mtrace("Orphaned video found: {$uid} (status: {$status}, age: " . round($age_minutes) . " min)");
+
+                // Delete if:
+                // 1. Status is "pending" or "queued" AND age > 30 minutes
+                // 2. OR status is "error"
+                $should_delete = false;
+                $reason = '';
+
+                if (($status === 'pending' || $status === 'queued') && $age_minutes > 30) {
+                    $should_delete = true;
+                    $reason = 'pending/queued for > 30 minutes';
+                } else if ($status === 'error') {
+                    $should_delete = true;
+                    $reason = 'error status';
+                }
+
+                if ($should_delete) {
+                    try {
+                        $cloudflare->delete_video($uid);
+                        $deleted_count++;
+                        mtrace("✓ Deleted orphaned video {$uid} ({$reason})");
+                    } catch (Exception $e) {
+                        $error_count++;
+                        mtrace("✗ Failed to delete orphaned video {$uid}: " . $e->getMessage());
+                    }
+                } else {
+                    $skipped_count++;
+                    mtrace("Skipped orphaned video {$uid} (status: {$status}, age: " . round($age_minutes) . " min)");
+                }
+            }
+        }
+
+        mtrace("Cloudflare Stream cleanup: Orphan cleanup completed.");
+        mtrace("  - Total orphans found: {$orphaned_count}");
+        mtrace("  - Deleted: {$deleted_count}");
+        mtrace("  - Skipped (not old enough or ready): {$skipped_count}");
+        mtrace("  - Errors: {$error_count}");
+
+    } catch (Exception $e) {
+        mtrace("Cloudflare Stream cleanup: Error during orphan detection: " . $e->getMessage());
+        error_log("Cloudflare orphan cleanup error: " . $e->getMessage());
+    }
+}
+```
+
+**Location:** Add to `execute()` method (around line 90)
+
+**Modify execute() to call the new method:**
+
+```php
+public function execute() {
+    global $DB;
+
+    // Get plugin configuration.
+    $apitoken = get_config('assignsubmission_cloudflarestream', 'apitoken');
+    $accountid = get_config('assignsubmission_cloudflarestream', 'accountid');
+    $retentiondays = get_config('assignsubmission_cloudflarestream', 'retention_days');
+
+    // Validate configuration.
+    if (empty($apitoken) || empty($accountid)) {
+        mtrace('Cloudflare Stream cleanup: API token or account ID not configured. Skipping cleanup.');
+        return;
+    }
+
+    // Initialize Cloudflare client.
+    $cloudflare = new cloudflare_client($apitoken, $accountid);
+
+    // Step 1: Clean up stuck uploads (pending/uploading for > 30 minutes).
+    $this->cleanup_stuck_uploads($cloudflare);
+
+    // Step 2: Clean up temporary records (submission=0) older than 30 minutes.
+    $this->cleanup_temporary_records($cloudflare);
+
+    // Step 3: Clean up duplicate records (multiple records for same submission).
+    $this->cleanup_duplicate_records();
+
+    // Step 4: NEW - Clean up orphaned videos (in Cloudflare but not in database).
+    $this->cleanup_orphaned_videos($cloudflare);
+
+    // Step 5: Sync database with Cloudflare (detect manually deleted videos).
+    $this->sync_with_cloudflare($cloudflare);
+
+    // Step 6: Clean up expired videos based on retention policy.
+    if ($retentiondays == -1) {
+        mtrace('Cloudflare Stream cleanup: Video retention set to "Always (Keep Forever)" - ready videos will be kept forever. Stuck uploads were still cleaned.');
+        return;
+    }
+
+    if (empty($retentiondays) || $retentiondays <= 0) {
+        mtrace('Cloudflare Stream cleanup: Invalid retention period configured. Skipping expired video cleanup.');
+        return;
+    }
+
+    $this->cleanup_expired_videos($cloudflare, $retentiondays);
+}
+```
+
+#### 2. `classes/api/cloudflare_client.php`
+
+**Location:** Add new method after `delete_video()` (around line 200)
+
+**Add this method:**
+
+```php
+/**
+ * List all videos in Cloudflare account.
+ * Used for orphan detection and cleanup.
+ *
+ * @return array Array of video objects from Cloudflare
+ * @throws cloudflare_api_exception If API call fails
+ */
+public function list_all_videos() {
+    $endpoint = "/accounts/{$this->accountid}/stream";
+    
+    $all_videos = [];
+    $page = 1;
+    $per_page = 100; // Cloudflare default
+    
+    do {
+        $url = $endpoint . "?per_page={$per_page}&page={$page}";
+        $response = $this->make_request('GET', $url);
+        
+        if (!isset($response->result) || !is_array($response->result)) {
+            break;
+        }
+        
+        $all_videos = array_merge($all_videos, $response->result);
+        
+        // Check if there are more pages
+        $has_more = isset($response->result_info->total_pages) && 
+                    $page < $response->result_info->total_pages;
+        
+        $page++;
+        
+    } while ($has_more);
+    
+    return $all_videos;
+}
+```
+
+### Expected Result:
+- ✅ Automatic detection of orphaned videos
+- ✅ Deletes pending/queued videos > 30 minutes old
+- ✅ Deletes videos with error status
+- ✅ Skips ready videos (might be legitimate)
+- ✅ Runs automatically with cron (every 30 minutes)
+- ✅ Full logging and audit trail
+- ✅ No manual cleanup needed
+
+### Considerations:
+
+**API Quota:**
+- Cloudflare API has rate limits
+- Listing all videos uses 1 API call per 100 videos
+- For 1000 videos = 10 API calls
+- Should be fine for most installations
+
+**Safety:**
+- Only deletes pending/queued/error videos
+- Skips ready videos (might be legitimate edge cases)
+- Age check (> 30 minutes) prevents deleting active uploads
+- Full logging for audit
+
+**Performance:**
+- Runs once every 30 minutes (with cron)
+- Minimal impact on system
+- Can be disabled if not needed
+
+### Testing:
+
+1. Create orphaned video manually:
+   - Start upload, kill it mid-way
+   - Delete database record manually
+   - Run cron: `php admin/cli/cron.php`
+   - Check Cloudflare dashboard - orphan should be deleted
+
+2. Check logs:
+   ```
+   Cloudflare Stream cleanup: Checking for orphaned videos in Cloudflare...
+   Cloudflare Stream cleanup: Found 20 videos in Cloudflare.
+   Cloudflare Stream cleanup: Found 18 videos in database.
+   Orphaned video found: abc123 (status: pending, age: 45 min)
+   ✓ Deleted orphaned video abc123 (pending/queued for > 30 minutes)
+   Cloudflare Stream cleanup: Orphan cleanup completed.
+     - Total orphans found: 2
+     - Deleted: 2
+     - Skipped: 0
+     - Errors: 0
+   ```
+
+3. Verify no false positives:
+   - Upload legitimate video
+   - Wait for it to become ready
+   - Run cron
+   - Verify it's NOT deleted
+
+---
+
+**Document Version:** 1.1  
+**Last Updated:** November 14, 2025  
+**Status:** Ready for Implementation After Testing

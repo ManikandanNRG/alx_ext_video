@@ -118,6 +118,39 @@ class assign_submission_cloudflarestream extends assign_submission_plugin {
             // This is a video replacement
             error_log("Cloudflare save(): Video replacement - Temp video: {$video_uid}, Old video: " . ($existing ? $existing->video_uid : 'none'));
             
+            // Clean up any OTHER old temporary records for this assignment (not the current one)
+            $other_temps = $DB->get_records_sql(
+                "SELECT * FROM {assignsubmission_cfstream} 
+                 WHERE assignment = ? AND submission = 0 AND video_uid != ?",
+                array($temp_record->assignment, $video_uid)
+            );
+            
+            if ($other_temps) {
+                foreach ($other_temps as $other_temp) {
+                    error_log("Cloudflare save(): Cleaning up old temp record (id={$other_temp->id}, video_uid={$other_temp->video_uid})");
+                    
+                    // Delete from Cloudflare
+                    if (!empty($other_temp->video_uid)) {
+                        try {
+                            $apitoken = get_config('assignsubmission_cloudflarestream', 'apitoken');
+                            $accountid = get_config('assignsubmission_cloudflarestream', 'accountid');
+                            
+                            if (!empty($apitoken) && !empty($accountid)) {
+                                require_once($CFG->dirroot . '/mod/assign/submission/cloudflarestream/classes/api/cloudflare_client.php');
+                                $client_temp = new \assignsubmission_cloudflarestream\api\cloudflare_client($apitoken, $accountid);
+                                $client_temp->delete_video($other_temp->video_uid);
+                                error_log("Cloudflare save(): ✓ Deleted old temp video {$other_temp->video_uid}");
+                            }
+                        } catch (Exception $e) {
+                            error_log("Cloudflare save(): ✗ Failed to delete old temp video {$other_temp->video_uid}: " . $e->getMessage());
+                        }
+                    }
+                    
+                    // Delete database record
+                    $DB->delete_records('assignsubmission_cfstream', array('id' => $other_temp->id));
+                }
+            }
+            
             // Delete old video from Cloudflare if it exists
             if ($existing && !empty($existing->video_uid)) {
                 error_log("Cloudflare save(): Deleting old video {$existing->video_uid}");

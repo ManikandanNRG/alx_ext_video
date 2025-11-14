@@ -90,43 +90,28 @@ try {
         // Get or create submission.
         $submission = $assign->get_user_submission($USER->id, true);
         
-        // Check for existing record and delete old video if replacing
+        // Check for existing record - use temporary record system for replacements
         $existing = $DB->get_record('assignsubmission_cfstream', ['submission' => $submission->id]);
         
-        // Debug logging
-        error_log("Cloudflare upload_tus (create): Submission ID = {$submission->id}, New UID = {$result->uid}");
-        error_log("Cloudflare upload_tus (create): Existing record found? " . ($existing ? 'YES' : 'NO'));
-        if ($existing) {
-            error_log("Cloudflare upload_tus (create): Existing video_uid = '{$existing->video_uid}'");
-            error_log("Cloudflare upload_tus (create): video_uid empty? " . (empty($existing->video_uid) ? 'YES' : 'NO'));
-            error_log("Cloudflare upload_tus (create): UIDs different? " . ($existing->video_uid !== $result->uid ? 'YES' : 'NO'));
-        }
-        
-        if ($existing && !empty($existing->video_uid) && $existing->video_uid !== $result->uid) {
-            error_log("Cloudflare upload_tus: Detected video replacement - Old UID: {$existing->video_uid}, New UID: {$result->uid}");
-            
-            try {
-                $client->delete_video($existing->video_uid);
-                error_log("Cloudflare upload_tus: ✓ Successfully deleted old video {$existing->video_uid}");
-            } catch (\assignsubmission_cloudflarestream\api\cloudflare_video_not_found_exception $e) {
-                error_log("Cloudflare upload_tus: Old video {$existing->video_uid} already deleted (404)");
-            } catch (Exception $e) {
-                error_log("Cloudflare upload_tus: ✗ Failed to delete old video {$existing->video_uid}: " . $e->getMessage());
-            }
-        }
-        
-        // Save to database.
+        // Save to database using temporary record system
         $record = new stdClass();
         $record->assignment = $assignmentid;
-        $record->submission = $submission->id;
         $record->video_uid = $result->uid;
         $record->upload_status = 'pending';
         $record->upload_timestamp = time();
         
         if ($existing) {
-            $record->id = $existing->id;
-            $DB->update_record('assignsubmission_cfstream', $record);
+            // Video replacement - create temporary record (submission=0)
+            $record->submission = 0;  // TEMPORARY - not linked to submission yet
+            error_log("Cloudflare upload_tus (create): Creating temporary record for video replacement. Old UID: {$existing->video_uid}, New UID: {$result->uid}");
+            $DB->insert_record('assignsubmission_cfstream', $record);
+            
+            // Note: Old video is NOT deleted here to prevent data loss if upload fails
+            // It will be deleted when user clicks "Save changes" (in lib.php save() method)
         } else {
+            // New upload - link directly to submission
+            $record->submission = $submission->id;
+            error_log("Cloudflare upload_tus (create): Creating new record for submission {$submission->id}, UID: {$result->uid}");
             $DB->insert_record('assignsubmission_cfstream', $record);
         }
         
