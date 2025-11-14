@@ -76,6 +76,14 @@ class cleanup_videos extends \core\task\scheduled_task {
         // This runs regardless of retention policy to prevent orphaned videos.
         $this->cleanup_stuck_uploads($cloudflare);
 
+        // Step 1.5: Clean up temporary records (submission=0) older than 30 minutes
+        // These are video replacements that were never saved
+        $this->cleanup_temporary_records($cloudflare);
+
+        // Step 1.6: Clean up duplicate records (multiple records for same submission)
+        // These can occur if database deletion fails during video replacement
+        $this->cleanup_duplicate_records();
+
         // Step 2: Sync database with Cloudflare (detect manually deleted videos).
         $this->sync_with_cloudflare($cloudflare);
 
@@ -189,6 +197,122 @@ class cleanup_videos extends \core\task\scheduled_task {
 
         mtrace("Cloudflare Stream cleanup: Stuck uploads cleanup completed. " .
                "{$deletedcount} deleted, {$notfoundcount} not found, {$failedcount} failed");
+    }
+
+    /**
+     * Clean up temporary records (submission=0) older than 30 minutes.
+     * These are video replacements that were never saved by clicking "Save changes".
+     *
+     * @param cloudflare_client $cloudflare Cloudflare API client
+     */
+    private function cleanup_temporary_records($cloudflare) {
+        global $DB;
+
+        $waittime = 1800; // 30 minutes
+        $cutofftimestamp = time() - $waittime;
+        
+        mtrace("Cloudflare Stream cleanup: Checking for temporary records (submission=0) older than 30 minutes...");
+        
+        $sql = "SELECT id, video_uid, assignment, upload_timestamp
+                FROM {assignsubmission_cfstream}
+                WHERE submission = 0
+                AND upload_timestamp < ?
+                ORDER BY upload_timestamp ASC";
+
+        $temprecords = $DB->get_records_sql($sql, [$cutofftimestamp]);
+        
+        if (empty($temprecords)) {
+            mtrace('Cloudflare Stream cleanup: No temporary records found.');
+            return;
+        }
+
+        mtrace('Cloudflare Stream cleanup: Found ' . count($temprecords) . ' temporary records to clean up.');
+
+        $deletedcount = 0;
+        $notfoundcount = 0;
+        $failedcount = 0;
+
+        foreach ($temprecords as $record) {
+            if (empty($record->video_uid)) {
+                $DB->delete_records('assignsubmission_cfstream', ['id' => $record->id]);
+                $deletedcount++;
+                continue;
+            }
+
+            try {
+                $cloudflare->delete_video($record->video_uid);
+                $deletedcount++;
+                mtrace("Cloudflare Stream cleanup: ✓ Deleted temporary video {$record->video_uid}");
+            } catch (cloudflare_video_not_found_exception $e) {
+                $notfoundcount++;
+                mtrace("Cloudflare Stream cleanup: ✓ Temporary video {$record->video_uid} not found (already deleted)");
+            } catch (cloudflare_api_exception $e) {
+                $failedcount++;
+                mtrace("Cloudflare Stream cleanup: ✗ Failed to delete temporary video {$record->video_uid}: " . $e->getMessage());
+            }
+
+            // Delete database record regardless
+            $DB->delete_records('assignsubmission_cfstream', ['id' => $record->id]);
+        }
+
+        mtrace("Cloudflare Stream cleanup: Temporary records cleanup completed. " .
+               "{$deletedcount} deleted, {$notfoundcount} not found, {$failedcount} failed");
+    }
+
+    /**
+     * Clean up duplicate records (multiple records for same submission).
+     * This can happen if database deletion fails during video replacement.
+     * Keeps the newest record and deletes older ones.
+     */
+    private function cleanup_duplicate_records() {
+        global $DB;
+
+        mtrace("Cloudflare Stream cleanup: Checking for duplicate records...");
+
+        // Find submissions with multiple records (excluding temporary records with submission=0)
+        $sql = "SELECT submission, COUNT(*) as count
+                FROM {assignsubmission_cfstream}
+                WHERE submission > 0
+                GROUP BY submission
+                HAVING COUNT(*) > 1";
+
+        $duplicates = $DB->get_records_sql($sql);
+
+        if (empty($duplicates)) {
+            mtrace('Cloudflare Stream cleanup: No duplicate records found.');
+            return;
+        }
+
+        mtrace('Cloudflare Stream cleanup: Found ' . count($duplicates) . ' submissions with duplicate records.');
+
+        $deletedcount = 0;
+
+        foreach ($duplicates as $duplicate) {
+            // Get all records for this submission, ordered by ID (newest last)
+            $records = $DB->get_records('assignsubmission_cfstream', 
+                ['submission' => $duplicate->submission], 
+                'id ASC'
+            );
+
+            // Keep the newest record (last one)
+            $recordsarray = array_values($records);
+            $keeprecord = array_pop($recordsarray);
+
+            mtrace("Cloudflare Stream cleanup: Submission {$duplicate->submission} has {$duplicate->count} records. Keeping ID {$keeprecord->id}, deleting " . count($recordsarray) . " older records.");
+
+            // Delete older records
+            foreach ($recordsarray as $oldrecord) {
+                try {
+                    $DB->delete_records('assignsubmission_cfstream', ['id' => $oldrecord->id]);
+                    $deletedcount++;
+                    mtrace("Cloudflare Stream cleanup: ✓ Deleted duplicate record ID {$oldrecord->id} (video_uid: {$oldrecord->video_uid})");
+                } catch (\Exception $e) {
+                    mtrace("Cloudflare Stream cleanup: ✗ Failed to delete duplicate record ID {$oldrecord->id}: " . $e->getMessage());
+                }
+            }
+        }
+
+        mtrace("Cloudflare Stream cleanup: Duplicate records cleanup completed. {$deletedcount} records deleted.");
     }
 
     /**

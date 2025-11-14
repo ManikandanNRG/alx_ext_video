@@ -96,7 +96,7 @@ class assign_submission_cloudflarestream extends assign_submission_plugin {
      * @return bool
      */
     public function save(stdClass $submission, stdClass $data) {
-        global $DB;
+        global $DB, $CFG;
 
         // Check if video_uid is provided in the form data
         if (empty($data->cloudflarestream_video_uid)) {
@@ -110,10 +110,17 @@ class assign_submission_cloudflarestream extends assign_submission_plugin {
         $existing = $DB->get_record('assignsubmission_cfstream', 
             array('submission' => $submission->id));
 
-        if ($existing) {
-            // Delete old video from Cloudflare if video UID has changed (video replacement)
-            if (!empty($existing->video_uid) && $existing->video_uid !== $video_uid) {
-                error_log("Cloudflare save(): Detected video replacement on Save - Old UID: {$existing->video_uid}, New UID: {$video_uid}");
+        // Check if there's a temporary record (submission=0) for this video
+        $temp_record = $DB->get_record('assignsubmission_cfstream',
+            array('submission' => 0, 'video_uid' => $video_uid));
+        
+        if ($temp_record) {
+            // This is a video replacement
+            error_log("Cloudflare save(): Video replacement - Temp video: {$video_uid}, Old video: " . ($existing ? $existing->video_uid : 'none'));
+            
+            // Delete old video from Cloudflare if it exists
+            if ($existing && !empty($existing->video_uid)) {
+                error_log("Cloudflare save(): Deleting old video {$existing->video_uid}");
                 
                 try {
                     $apitoken = get_config('assignsubmission_cloudflarestream', 'apitoken');
@@ -131,9 +138,37 @@ class assign_submission_cloudflarestream extends assign_submission_plugin {
                 } catch (Exception $e) {
                     error_log("Cloudflare save(): ✗ Failed to delete old video {$existing->video_uid}: " . $e->getMessage());
                 }
+                
+                // Delete old database record
+                try {
+                    $DB->delete_records('assignsubmission_cfstream', array('id' => $existing->id));
+                    error_log("Cloudflare save(): ✓ Successfully deleted old database record (id={$existing->id})");
+                } catch (Exception $e) {
+                    error_log("Cloudflare save(): ✗ Failed to delete old database record (id={$existing->id}): " . $e->getMessage());
+                }
             }
             
-            // Update existing record
+            // Link temporary record to submission
+            error_log("Cloudflare save(): Linking temporary video {$video_uid} to submission {$submission->id}");
+            
+            $temp_record->submission = $submission->id;
+            $temp_record->upload_status = $upload_status;
+            
+            if (isset($data->cloudflarestream_file_size)) {
+                $temp_record->file_size = $data->cloudflarestream_file_size;
+            }
+            if (isset($data->cloudflarestream_duration)) {
+                $temp_record->duration = $data->cloudflarestream_duration;
+            }
+            
+            $DB->update_record('assignsubmission_cfstream', $temp_record);
+            error_log("Cloudflare save(): ✓ Successfully linked temporary video to submission");
+            
+            return true;
+        }
+        
+        if ($existing) {
+            // Update existing record (no replacement)
             $existing->video_uid = $video_uid;
             $existing->upload_status = $upload_status;
             

@@ -212,8 +212,13 @@ class validator {
      * @return int Validated submission ID
      * @throws validation_exception If submission ID is invalid
      */
-    public static function validate_submission_id($submissionid) {
+    public static function validate_submission_id($submissionid, $allow_zero = false) {
         $submissionid = clean_param($submissionid, PARAM_INT);
+        
+        // Allow 0 for temporary records (video replacements not yet saved)
+        if ($allow_zero && $submissionid === 0) {
+            return 0;
+        }
         
         if (empty($submissionid) || $submissionid <= 0) {
             throw new validation_exception('invalid_submission_id', 'Submission ID must be a positive integer');
@@ -372,7 +377,8 @@ class validator {
         }
         
         if (isset($record->submission)) {
-            $sanitized->submission = self::validate_submission_id($record->submission);
+            // Allow submission=0 for temporary records (video replacements)
+            $sanitized->submission = self::validate_submission_id($record->submission, true);
         }
         
         if (isset($record->video_uid) && $record->video_uid !== '') {

@@ -59,10 +59,12 @@ if (!empty($apitoken) && !empty($accountid) && !empty($videouid)) {
 }
 
 // Delete from database - ALWAYS run this regardless of Cloudflare result
+// This handles both regular records and temporary records (submission=0)
 if ($submissionid > 0 && !empty($videouid)) {
     try {
-        $DB->delete_records('assignsubmission_cfstream', ['video_uid' => $videouid]);
+        $deleted_count = $DB->delete_records('assignsubmission_cfstream', ['video_uid' => $videouid]);
         $deleted_from_database = true;
+        error_log("Cloudflare cleanup: Deleted {$deleted_count} database record(s) for video {$videouid}");
     } catch (Exception $e) {
         // Log error but continue
         error_log("Database cleanup error for {$videouid}: " . $e->getMessage());

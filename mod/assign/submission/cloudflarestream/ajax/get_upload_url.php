@@ -94,30 +94,47 @@ try {
     // Get or create submission record.
     $submission = $assign->get_user_submission($USER->id, true);
     
+    // Validate submission was created
+    if (empty($submission) || empty($submission->id)) {
+        error_log("Cloudflare get_upload_url: Failed to get/create submission for user {$USER->id}, assignment {$assignmentid}");
+        error_log("Cloudflare get_upload_url: Submission object: " . print_r($submission, true));
+        throw new moodle_exception('error', 'assignsubmission_cloudflarestream', '', 'Invalid submission identifier');
+    }
+    
+    error_log("Cloudflare get_upload_url: Got submission ID: {$submission->id} for user {$USER->id}");
+    
     // Check if record already exists for this submission.
     $existing = $DB->get_record('assignsubmission_cfstream', 
         array('submission' => $submission->id));
     
     // Create database record with pending status.
-    // IMPORTANT: Store video_uid immediately so cleanup can find it if upload fails
+    // IMPORTANT: For video replacements, create TEMPORARY record (submission=0)
+    // This keeps the old video safe until user clicks "Save changes"
     $record = new stdClass();
     $record->assignment = $assignmentid;
-    $record->submission = $submission->id;
-    $record->video_uid = $result->uid; // Store UID immediately for cleanup
+    
+    // If this is a replacement (existing record), create temporary record
+    // Otherwise, link directly to submission (new upload)
+    if ($existing) {
+        // Delete any old temporary records for this assignment to avoid duplicates
+        $DB->delete_records('assignsubmission_cfstream', 
+            array('assignment' => $assignmentid, 'submission' => 0));
+        
+        $record->submission = 0;  // TEMPORARY - not linked to submission yet
+        error_log("Cloudflare get_upload_url: Creating temporary record for video replacement. Old UID: {$existing->video_uid}, New UID: {$result->uid}");
+    } else {
+        $record->submission = $submission->id;  // New upload - link directly
+    }
+    
+    $record->video_uid = $result->uid;
     $record->upload_status = 'pending';
     $record->upload_timestamp = time();
     
     // Validate and sanitize the record before database operations.
     $record = validator::validate_database_record($record);
     
-    if ($existing) {
-        // Update existing record.
-        $record->id = $existing->id;
-        $DB->update_record('assignsubmission_cfstream', $record);
-    } else {
-        // Insert new record.
-        $DB->insert_record('assignsubmission_cfstream', $record);
-    }
+    // Always insert new record (don't update existing for replacements)
+    $DB->insert_record('assignsubmission_cfstream', $record);
     
     // Log the response for debugging
     error_log('Cloudflare upload URL response: uploadURL=' . $result->uploadURL . ', uid=' . $result->uid . ', submissionid=' . $submission->id);
