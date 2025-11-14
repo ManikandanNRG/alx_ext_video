@@ -117,8 +117,26 @@ try {
     // Otherwise, link directly to submission (new upload)
     if ($existing) {
         // Delete any old temporary records for this assignment to avoid duplicates
-        $DB->delete_records('assignsubmission_cfstream', 
+        $oldtemps = $DB->get_records('assignsubmission_cfstream', 
             array('assignment' => $assignmentid, 'submission' => 0));
+        
+        if ($oldtemps) {
+            foreach ($oldtemps as $oldtemp) {
+                // Delete video from Cloudflare first
+                if (!empty($oldtemp->video_uid)) {
+                    try {
+                        $client->delete_video($oldtemp->video_uid);
+                        error_log("Cloudflare get_upload_url: ✓ Deleted old temp video {$oldtemp->video_uid} from Cloudflare");
+                    } catch (Exception $e) {
+                        error_log("Cloudflare get_upload_url: ✗ Failed to delete old temp video {$oldtemp->video_uid}: " . $e->getMessage());
+                    }
+                }
+                
+                // Delete database record
+                $DB->delete_records('assignsubmission_cfstream', array('id' => $oldtemp->id));
+                error_log("Cloudflare get_upload_url: ✓ Deleted old temp record (id={$oldtemp->id})");
+            }
+        }
         
         $record->submission = 0;  // TEMPORARY - not linked to submission yet
         error_log("Cloudflare get_upload_url: Creating temporary record for video replacement. Old UID: {$existing->video_uid}, New UID: {$result->uid}");
