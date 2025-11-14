@@ -98,20 +98,6 @@ try {
     $existing = $DB->get_record('assignsubmission_cfstream', 
         array('submission' => $submission->id));
     
-    // Delete old video from Cloudflare if this is a replacement
-    if ($existing && !empty($existing->video_uid) && $existing->video_uid !== $result->uid) {
-        error_log("Cloudflare get_upload_url: Detected video replacement - Old UID: {$existing->video_uid}, New UID: {$result->uid}");
-        
-        try {
-            $client->delete_video($existing->video_uid);
-            error_log("Cloudflare get_upload_url: ✓ Successfully deleted old video {$existing->video_uid}");
-        } catch (cloudflare_video_not_found_exception $e) {
-            error_log("Cloudflare get_upload_url: Old video {$existing->video_uid} already deleted (404)");
-        } catch (Exception $e) {
-            error_log("Cloudflare get_upload_url: ✗ Failed to delete old video {$existing->video_uid}: " . $e->getMessage());
-        }
-    }
-    
     // Create database record with pending status.
     // IMPORTANT: Store video_uid immediately so cleanup can find it if upload fails
     $record = new stdClass();

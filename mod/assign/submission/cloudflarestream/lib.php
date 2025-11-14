@@ -111,8 +111,27 @@ class assign_submission_cloudflarestream extends assign_submission_plugin {
             array('submission' => $submission->id));
 
         if ($existing) {
-            // Note: Old video deletion is handled in confirm_upload.php
-            // because by the time save() runs, the database already has the new UID
+            // Delete old video from Cloudflare if video UID has changed (video replacement)
+            if (!empty($existing->video_uid) && $existing->video_uid !== $video_uid) {
+                error_log("Cloudflare save(): Detected video replacement on Save - Old UID: {$existing->video_uid}, New UID: {$video_uid}");
+                
+                try {
+                    $apitoken = get_config('assignsubmission_cloudflarestream', 'apitoken');
+                    $accountid = get_config('assignsubmission_cloudflarestream', 'accountid');
+                    
+                    if (!empty($apitoken) && !empty($accountid)) {
+                        require_once($CFG->dirroot . '/mod/assign/submission/cloudflarestream/classes/api/cloudflare_client.php');
+                        $client = new \assignsubmission_cloudflarestream\api\cloudflare_client($apitoken, $accountid);
+                        $client->delete_video($existing->video_uid);
+                        
+                        error_log("Cloudflare save(): ✓ Successfully deleted old video {$existing->video_uid}");
+                    }
+                } catch (\assignsubmission_cloudflarestream\api\cloudflare_video_not_found_exception $e) {
+                    error_log("Cloudflare save(): Old video {$existing->video_uid} already deleted (404)");
+                } catch (Exception $e) {
+                    error_log("Cloudflare save(): ✗ Failed to delete old video {$existing->video_uid}: " . $e->getMessage());
+                }
+            }
             
             // Update existing record
             $existing->video_uid = $video_uid;
