@@ -595,7 +595,8 @@ define(['jquery'], function ($) {
                     if (data.success) {
                         resolve({
                             uid: data.uid,
-                            submissionid: data.submissionid
+                            submissionid: data.submissionid,
+                            upload_url: data.upload_url
                         });
                     } else {
                         reject(new Error(data.error || 'Failed to create TUS session'));
