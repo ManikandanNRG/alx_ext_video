@@ -652,7 +652,7 @@ define(['jquery'], function ($) {
         }
 
         /**
-         * Upload a single TUS chunk via PHP.
+         * Upload a single TUS chunk via PHP with retry logic.
          * PHP handles all Cloudflare communication.
          *
          * @param {string} uploadUrl Not used (kept for compatibility)
@@ -661,6 +661,37 @@ define(['jquery'], function ($) {
          * @return {Promise<number>} New offset after upload
          */
         async uploadTusChunk(uploadUrl, chunkData, offset) {
+            const maxRetries = 3;
+            let lastError = null;
+            
+            for (let attempt = 0; attempt < maxRetries; attempt++) {
+                try {
+                    return await this.uploadTusChunkAttempt(chunkData, offset);
+                } catch (error) {
+                    lastError = error;
+                    console.log(`Chunk upload failed (attempt ${attempt + 1}/${maxRetries}):`, error.message);
+                    
+                    // If not last attempt, wait before retrying (exponential backoff)
+                    if (attempt < maxRetries - 1) {
+                        const waitTime = Math.pow(2, attempt) * 2000; // 2s, 4s, 8s
+                        console.log(`Retrying in ${waitTime/1000} seconds...`);
+                        await this.sleep(waitTime);
+                    }
+                }
+            }
+            
+            // All retries failed
+            throw lastError;
+        }
+        
+        /**
+         * Single attempt to upload a TUS chunk.
+         *
+         * @param {ArrayBuffer} chunkData Chunk data
+         * @param {number} offset Current byte offset
+         * @return {Promise<number>} New offset after upload
+         */
+        async uploadTusChunkAttempt(chunkData, offset) {
             return new Promise((resolve, reject) => {
                 const xhr = new XMLHttpRequest();
 
@@ -672,6 +703,7 @@ define(['jquery'], function ($) {
 
                 xhr.open('POST', url);
                 xhr.setRequestHeader('Content-Type', 'application/octet-stream');
+                xhr.timeout = 120000; // 2 minute timeout per chunk
 
                 xhr.onload = () => {
                     if (xhr.status === 200) {
