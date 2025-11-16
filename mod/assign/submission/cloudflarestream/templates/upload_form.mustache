@@ -79,14 +79,14 @@
     {{/hasvideo}}
 
     <div class="cloudflarestream-upload-info alert alert-info">
-        <div class="row">
-            <div class="col-md-6">
-                <strong><i class="fa fa-file-video-o"></i> {{#str}}acceptedformats, assignsubmission_cloudflarestream{{/str}}:</strong>
-                <small>MP4, MOV, AVI, MKV, WebM, MPEG, OGG, 3GP, FLV</small>
+        <div class="cloudflarestream-info-row">
+            <div class="cloudflarestream-info-left">
+                <strong><i class="fa fa-film" aria-hidden="true"></i> {{#str}}acceptedformats, assignsubmission_cloudflarestream{{/str}}</strong>
+                <div class="cloudflarestream-formats-list">MP4, MOV, AVI, MKV, WebM, MPEG, OGG, 3GP, FLV</div>
             </div>
-            <div class="col-md-6">
-                <strong><i class="fa fa-database"></i> {{#str}}maxfilesize, core{{/str}}:</strong>
-                <small>{{maxfilesizeformatted}}</small>
+            <div class="cloudflarestream-info-right">
+                <strong><i class="fa fa-database" aria-hidden="true"></i> {{#str}}maxfilesize, core{{/str}}</strong>
+                <div class="cloudflarestream-size-value">{{maxfilesizeformatted}}</div>
             </div>
         </div>
     </div>

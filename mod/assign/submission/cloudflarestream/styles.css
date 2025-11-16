@@ -851,33 +851,85 @@
     padding: 0;
 }
 
-/* Upload information box (Task 1) */
+/* Upload information box - Full width layout */
 .cloudflarestream-upload-info {
     margin-bottom: 20px;
-    padding: 15px;
-    background-color: #e7f3ff;
-    border-left: 4px solid #0066cc;
+    padding: 20px 20px !important;
+    min-height: 80px !important;
+    background-color: #e7f3ff !important;
+    border-left: 4px solid #0066cc !important;
     border-radius: 4px;
 }
 
-.cloudflarestream-upload-info .row {
-    margin: 0;
+.cloudflarestream-info-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 30px;
+    min-height: 50px;
+}
+
+.cloudflarestream-info-left {
+    flex: 1;
+    min-width: 0;
+}
+
+.cloudflarestream-info-right {
+    flex-shrink: 0;
+    text-align: right;
+    min-width: 150px;
 }
 
 .cloudflarestream-upload-info strong {
-    color: #0066cc;
-    font-size: 14px;
+    color: #0066cc !important;
+    font-size: 15px !important;
+    font-weight: 600 !important;
+    display: block;
+    margin-bottom: 8px;
+    line-height: 1.4;
 }
 
-.cloudflarestream-upload-info small {
+.cloudflarestream-upload-info i.fa {
+    margin-right: 8px !important;
+    font-size: 16px !important;
+    display: inline-block !important;
+    vertical-align: middle;
+    width: 16px;
+    text-align: center;
+}
+
+.cloudflarestream-upload-info i.fa-film,
+.cloudflarestream-upload-info i.fa-database {
+    display: inline-block !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    font-family: FontAwesome !important;
+}
+
+.cloudflarestream-formats-list {
     color: #666;
     font-size: 13px;
-    display: block;
-    margin-top: 5px;
+    line-height: 1.6;
+    padding-left: 24px;
 }
 
-.cloudflarestream-upload-info i {
-    margin-right: 5px;
+.cloudflarestream-size-value {
+    color: #666;
+    font-size: 15px;
+    font-weight: 500;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .cloudflarestream-info-row {
+        flex-direction: column;
+        gap: 15px;
+    }
+    
+    .cloudflarestream-info-right {
+        text-align: left;
+        min-width: 0;
+    }
 }
 
 /* ========================================
