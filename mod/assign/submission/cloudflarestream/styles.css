@@ -865,19 +865,20 @@
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
-    gap: 30px;
+    gap: 20px;
     min-height: 50px;
 }
 
 .cloudflarestream-info-left {
-    flex: 1;
+    flex: 0 0 50%;
+    width: 50%;
     min-width: 0;
 }
 
 .cloudflarestream-info-right {
-    flex-shrink: 0;
-    text-align: right;
-    min-width: 150px;
+    flex: 0 0 50%;
+    width: 50%;
+    text-align: left;
 }
 
 .cloudflarestream-upload-info strong {
@@ -910,13 +911,16 @@
     color: #666;
     font-size: 13px;
     line-height: 1.6;
-    padding-left: 24px;
+    max-width: 280px;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
 }
 
 .cloudflarestream-size-value {
     color: #666;
     font-size: 15px;
     font-weight: 500;
+    text-align: left;
 }
 
 /* Responsive adjustments */
