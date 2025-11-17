@@ -9,9 +9,9 @@
 defined('MOODLE_INTERNAL') || die();
 
 $plugin = new stdClass();
-$plugin->version   = 2025110101;        // The current plugin version (Date: YYYYMMDDXX).
+$plugin->version   = 2025111701;        // The current plugin version (Date: YYYYMMDDXX).
 $plugin->requires  = 2022112800;        // Requires Moodle 4.1 or higher (compatible with 4.2).
 $plugin->component = 'assignsubmission_cloudflarestream';
-$plugin->maturity  = MATURITY_BETA;     // Beta for TUS development.
-$plugin->release   = '1.2.0-dev';       // TUS upload feature in development.
+$plugin->maturity  = MATURITY_STABLE;   // Stable release.
+$plugin->release   = '1.5.0';           // Version 1.5 - Production ready with TUS upload, retry logic, and UI improvements.
 $plugin->dependencies = array();
