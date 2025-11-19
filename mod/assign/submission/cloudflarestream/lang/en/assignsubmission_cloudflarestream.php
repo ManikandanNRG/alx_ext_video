@@ -10,7 +10,7 @@ defined('MOODLE_INTERNAL') || die();
 
 // Plugin name.
 $string['pluginname'] = 'Cloudflare Stream video submission';
-$string['cloudflarestream'] = 'File Submitted';
+$string['cloudflarestream'] = 'Video Content';
 $string['enabled'] = 'Enable Cloudflare Stream submissions';
 $string['enabled_help'] = 'If enabled, students can upload videos to Cloudflare Stream as assignment submissions.';
 $string['default'] = 'Enabled by default';
